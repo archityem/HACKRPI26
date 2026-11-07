@@ -12,7 +12,7 @@ export interface Snapshot {
   ai: {
     enabled: boolean;
     generating: boolean; // Gemini is currently proposing destinations
-    source: "gemini" | "fixture" | "pending"; // pending = AI on, proposals not ready yet
+    source: "gemini" | "fixture" | "fallback" | "pending"; // fallback = AI failed, sample data stands in; pending = not ready yet
     model?: string;
     itinerary: "off" | "ready" | "generating" | "failed";
   };
@@ -77,4 +77,20 @@ export const loadMemberId = (code: string): string | null => {
 };
 export const saveMemberId = (code: string, id: string) => {
   try { localStorage.setItem(key(code), id); } catch { /* storage unavailable: session-only */ }
+};
+
+// ---- Traveler colors: stored as an index on the member, rendered through the --ew-t0..--ew-t7 CSS variables.
+export const hueVar = (m: { hue?: number }, fallbackIndex = 0) => `var(--ew-t${(m.hue ?? fallbackIndex) % 8})`;
+
+// ---- Trips this device has opened, for the home page. Device-local, never sent anywhere.
+export interface RememberedTrip { code: string; title: string; at: string }
+const TRIPS_KEY = "elsewhere:trips";
+export const listTrips = (): RememberedTrip[] => {
+  try { return JSON.parse(localStorage.getItem(TRIPS_KEY) ?? "[]") as RememberedTrip[]; } catch { return []; }
+};
+export const rememberTrip = (code: string, title: string) => {
+  try {
+    const rest = listTrips().filter((t) => t.code !== code);
+    localStorage.setItem(TRIPS_KEY, JSON.stringify([{ code, title, at: new Date().toISOString() }, ...rest].slice(0, 12)));
+  } catch { /* storage unavailable: the list just won't persist */ }
 };

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PREFS, api, dayDiff, money, saveMemberId } from "@/lib/client";
+import { PREFS, api, dayDiff, money, rememberTrip, saveMemberId } from "@/lib/client";
 import { Btn, Shell } from "@/app/_components/Shell";
 
 export default function NewTrip() {
@@ -24,6 +24,7 @@ export default function NewTrip() {
     try {
       const r = await api<{ code: string; memberId: string }>("/api/trips", { ...f, hostName: f.hostName.trim(), title: f.title.trim(), note: f.note.trim() });
       saveMemberId(r.code, r.memberId);
+      rememberTrip(r.code, f.title.trim());
       router.push(`/t/${r.code}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn’t create the trip.");

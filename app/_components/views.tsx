@@ -1,10 +1,13 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Suggestion } from "@/lib/matching";
 import {
   AIRPORTS, DEALS, PREFS, airportsFor, api, dayDiff, money, prefLabel, range, short, type PublicMember, type Snapshot,
 } from "@/lib/client";
+import { buildIcs } from "@/lib/ics";
+import { inviteMessage, itineraryText, nudgeMessage } from "@/lib/messages";
 import type { Deal } from "@/lib/types";
+import { AvailabilityStrip } from "./AvailabilityStrip";
 import { Btn, type View } from "./Shell";
 
 export interface Ctx {
@@ -18,6 +21,42 @@ export interface Ctx {
 }
 
 const Avatar = ({ m }: { m: PublicMember }) => <span className="ew-avatar" aria-label={m.name}>{m.name.slice(0, 1)}</span>;
+
+const linkFor = (code: string) => `${window.location.origin}/t/${code}`;
+
+async function copyText(text: string, ctx: Ctx, ok: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    ctx.toast(ok);
+  } catch {
+    ctx.toast("Couldn’t copy automatically. Select the text and copy it.");
+  }
+}
+
+const retryAi = (ctx: Ctx) => ctx.run(() => api(`/api/trips/${ctx.code}/retry`, { memberId: ctx.me!.id }), "Trying again.");
+
+/** Wait screen for the 10-20s AI step: shows what is being matched (real inputs), not invented progress. */
+function WaitPanel({ snap }: { snap: Snapshot }) {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => { const i = setInterval(() => setSecs((n) => n + 1), 1000); return () => clearInterval(i); }, []);
+  const ready = snap.members.filter((x) => x.ready);
+  const from = [...new Set(ready.map((x) => x.origin))];
+  const interests = [...new Set([...snap.trip.vibes, ...ready.flatMap((x) => x.prefs)])].map(prefLabel);
+  return (
+    <div className="ew-empty" aria-live="polite" aria-busy="true">
+      <span className="ew-empty-icon">✳</span>
+      <h2>Finding places for your crew…</h2>
+      <div className="ew-wait-bar" />
+      <dl className="ew-wait-list">
+        <dt>Dates</dt><dd>{snap.match.start && snap.match.end ? range(snap.match.start, snap.match.end) : "Working it out"}</dd>
+        <dt>Flying from</dt><dd>{from.join(", ")}</dd>
+        <dt>Interests</dt><dd>{interests.join(", ") || "Anything"}</dd>
+        <dt>Budget cap</dt><dd>{money(snap.trip.maxBudget)} each</dd>
+      </dl>
+      <p className="ew-note">Usually 10–20 seconds. This page updates by itself. Waited {secs}s.</p>
+    </div>
+  );
+}
 
 export function Poster({ theme }: { theme: string }) {
   return (
@@ -285,11 +324,14 @@ export function IdeasView(ctx: Ctx) {
       })}</div>
     );
   } else if (snap.ai.source === "pending" && m.overlap && m.readyCount) {
+    cards = <WaitPanel snap={snap} />;
+  } else if (snap.ai.source === "fallback" && m.overlap) {
     cards = (
-      <div className="ew-empty" aria-live="polite">
-        <span className="ew-empty-icon">✳</span>
-        <h2>Finding places for your crew…</h2>
-        <p>We’re matching your dates, budgets, and vibes to destinations. This usually takes 10–20 seconds, and this page updates by itself.</p>
+      <div className="ew-empty">
+        <span className="ew-empty-icon">☁</span>
+        <h2>Ideas aren’t available right now.</h2>
+        <p>The AI service that suggests places is overloaded, so we couldn’t build your list. Your details are saved. Try again in a minute.</p>
+        <Btn kind="ew-primary" disabled={!me?.ready} onClick={() => retryAi(ctx)}>Try again</Btn>
       </div>
     );
   } else {
@@ -321,6 +363,12 @@ export function IdeasView(ctx: Ctx) {
           <Btn kind="ew-lime" onClick={() => ctx.go("onboard")}>Add my details</Btn>
         </div>
       )}
+      {snap.ai.source === "fallback" && m.eligible.length > 0 && (
+        <div className="ew-proposal" role="status" style={{ margin: "0 0 20px" }}>
+          <div><strong>AI ideas are unavailable right now.</strong><p>These are sample places that may not suit your group.</p></div>
+          <Btn kind="ew-lime" disabled={!me?.ready} onClick={() => retryAi(ctx)}>Try again</Btn>
+        </div>
+      )}
       {cards}
       {lead && (
         <div className="ew-proposal">
@@ -345,6 +393,11 @@ export function IdeasView(ctx: Ctx) {
 export function CrewView(ctx: Ctx) {
   const { snap, me } = ctx;
   const m = snap.match;
+  const t = snap.trip;
+  const waiting = snap.members.filter((x) => !x.ready);
+  const link = linkFor(ctx.code);
+  const invite = inviteMessage({ title: t.title, windowStart: t.windowStart, windowEnd: t.windowEnd, nights: t.nights, maxBudget: t.maxBudget, link });
+  const canShare = typeof navigator !== "undefined" && "share" in navigator;
   return (
     <>
       <div className="ew-intro">
@@ -352,6 +405,10 @@ export function CrewView(ctx: Ctx) {
         <Btn onClick={() => ctx.go("invite")}>Invite link ↗</Btn>
       </div>
       <Summary ctx={ctx} />
+      <AvailabilityStrip
+        members={snap.members} windowStart={t.windowStart} windowEnd={t.windowEnd} nights={t.nights}
+        shared={m.overlap && m.start && m.end ? { start: m.start, end: m.end } : null}
+      />
       <div className="ew-member-list">{snap.members.map((x) => (
         <article className="ew-member" key={x.id}>
           <Avatar m={x} />
@@ -363,6 +420,21 @@ export function CrewView(ctx: Ctx) {
           {x.id === me?.id ? <Btn kind="ew-lime" onClick={() => ctx.go("onboard")}>{x.ready ? "Edit" : "Add details"}</Btn> : <span className="ew-badge">{x.ready ? "✓ Ready" : "Awaiting details"}</span>}
         </article>
       ))}</div>
+      <section className="ew-sharebox" aria-label="Invite">
+        <h3>Invite your people</h3>
+        <input readOnly value={link} aria-label="Invite link" onFocus={(e) => e.currentTarget.select()} />
+        <div className="ew-row">
+          <Btn kind="ew-primary" onClick={() => copyText(invite, ctx, "Invite message copied.")}>Copy invite message</Btn>
+          <Btn onClick={() => copyText(link, ctx, "Link copied.")}>Copy link</Btn>
+          {canShare && <Btn onClick={() => navigator.share({ title: t.title, text: invite, url: link }).catch(() => undefined)}>Share</Btn>}
+        </div>
+        {waiting.length > 0 && (
+          <>
+            <p className="ew-note">Still waiting on {waiting.map((x) => x.name).join(", ")}.</p>
+            <div><Btn onClick={() => copyText(nudgeMessage({ title: t.title, names: waiting.map((x) => x.name), link }), ctx, "Reminder copied. Paste it in your group chat.")}>Copy a reminder</Btn></div>
+          </>
+        )}
+      </section>
       <div className="ew-proposal">
         <div>
           <strong>{m.overlap ? "We have an overlap. That’s a start." : m.readyCount ? "Your calendars need a little teamwork." : "Waiting on the first answers."}</strong>
@@ -374,7 +446,8 @@ export function CrewView(ctx: Ctx) {
   );
 }
 
-function ItineraryBlock({ snap }: { snap: Snapshot }) {
+function ItineraryBlock({ ctx }: { ctx: Ctx }) {
+  const { snap } = ctx;
   const st = snap.ai.itinerary;
   const it = snap.trip.itinerary;
   if (st === "off") return null;
@@ -382,7 +455,8 @@ function ItineraryBlock({ snap }: { snap: Snapshot }) {
     return (
       <div className="ew-plan-card" aria-live="polite">
         <h3>{st === "failed" ? "We couldn’t draft an itinerary this time." : "Writing your itinerary…"}</h3>
-        <p className="ew-note" style={{ marginTop: 6 }}>{st === "failed" ? "The checklist below still works. Reopen destination planning and approve again to retry." : "This usually takes 10–20 seconds, and this page updates by itself."}</p>
+        <p className="ew-note" style={{ marginTop: 6 }}>{st === "failed" ? "The AI service is overloaded. Your plan is safe, and the checklist below still works." : "This usually takes 10–20 seconds, and this page updates by itself."}</p>
+        {st === "failed" && ctx.me && <div style={{ marginTop: 10 }}><Btn onClick={() => retryAi(ctx)}>Try again</Btn></div>}
       </div>
     );
   }
@@ -430,6 +504,19 @@ export function PlanView(ctx: Ctx) {
       </div>
     );
   }
+  const it = snap.trip.itinerary;
+  function addToCalendar() {
+    const ics = buildIcs({
+      uid: `${ctx.code}@elsewhere`, title: `${d!.name} trip`, location: `${d!.name}, ${d!.country}`,
+      start: m.start!, end: m.tripEnd!, description: `${snap.trip.title}. ${it?.summary ?? ""} ${linkFor(ctx.code)}`.trim(),
+    });
+    const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${d!.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-trip.ics`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   const reconsider = async () => { if (await ctx.run(() => api(`/api/trips/${ctx.code}/proposal`, { memberId: me!.id, destinationId: null }))) ctx.go("ideas"); };
 
   if (snap.trip.phase === "planning") {
@@ -437,7 +524,7 @@ export function PlanView(ctx: Ctx) {
     return (
       <>
         <div className="ew-celebrate"><span aria-hidden="true">✳</span><div><h2>It made it out of the group chat.</h2><p>All {ready.length} travelers approved {d.name}. {range(m.start, m.tripEnd)} is the plan.</p></div></div>
-        <ItineraryBlock snap={snap} />
+        <ItineraryBlock ctx={ctx} />
         <div className="ew-divider" style={{ margin: "26px 0" }} />
         <div className="ew-grid2">
           <div className="ew-stack">
@@ -456,6 +543,12 @@ export function PlanView(ctx: Ctx) {
             <div className="ew-divider" />
             <h3>Group checkout comes next.</h3>
             <p className="ew-note">After choosing flights and a stay, everyone reviews the final price before approving a payment.</p>
+            <div className="ew-row">
+              <Btn kind="ew-primary" onClick={addToCalendar}>Add to calendar</Btn>
+              {it && snap.ai.itinerary === "ready" && (
+                <Btn onClick={() => copyText(itineraryText({ destination: d.name, start: m.start!, end: m.tripEnd!, itinerary: it }), ctx, "Itinerary copied.")}>Copy itinerary</Btn>
+              )}
+            </div>
             <button className="ew-link" onClick={reconsider}>Reopen destination planning</button>
           </aside>
         </div>

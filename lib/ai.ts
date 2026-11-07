@@ -10,7 +10,7 @@ export const aiEnabled = () => Boolean(process.env.GEMINI_API_KEY);
 // GEMINI_MODEL, if set, is tried first. Ordered by measured latency/availability (3.7/3.8 were overloaded on 2026-11-07);
 // slow, overloaded, or unavailable models fall through to the next.
 const MODELS = () =>
-  [...new Set([process.env.GEMINI_MODEL, "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"].filter(Boolean) as string[])];
+  [...new Set([process.env.GEMINI_MODEL, "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"].filter(Boolean) as string[])];
 const TAGS = ["beach", "food", "nature", "nightlife", "culture", "city"] as const;
 const COUNT = 8;
 const TIMEOUT_MS = 30_000;

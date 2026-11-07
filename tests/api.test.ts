@@ -85,6 +85,15 @@ test("a late joiner must also approve before planning unlocks", async () => {
   assert.equal(late.trip.proposal, null); // new member reset the agreement
 });
 
+test("retry: validates input, requires a ready member, 404s unknown trips", async () => {
+  const { body: c } = await j(await post(B, { hostName: "A", title: "T", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 3000 }));
+  assert.equal((await post(`${B}/${c.code}/retry`, {})).status, 400);
+  assert.equal((await post(`${B}/${c.code}/retry`, { memberId: c.memberId })).status, 403); // host hasn't answered yet
+  assert.equal((await post(`${B}/nope00/retry`, { memberId: "x" })).status, 404);
+  await post(`${B}/${c.code}/members`, { memberId: c.memberId, name: "A", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] });
+  assert.equal((await post(`${B}/${c.code}/retry`, { memberId: c.memberId })).status, 200);
+});
+
 test("validation and not-found", async () => {
   assert.equal((await post(B, { hostName: "" })).status, 400);
   assert.equal((await post(B, { hostName: "A", title: "T", windowStart: "2027-03-10", windowEnd: "2027-03-01", nights: 5, maxBudget: 100 })).status, 400);

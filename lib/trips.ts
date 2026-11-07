@@ -26,7 +26,8 @@ async function setJob(code: string, name: "candidates" | "itinerary", job: JobSt
 const running = (key: string): JobState => ({ key, at: new Date().toISOString(), state: "running" });
 const failed = (key: string): JobState => ({ key, at: new Date().toISOString(), state: "failed" });
 
-export type Source = "gemini" | "fixture" | "pending";
+// fixture = AI is off (sample data on purpose); fallback = AI is on but failed, so sample data is a stand-in; pending = still generating.
+export type Source = "gemini" | "fixture" | "fallback" | "pending";
 
 /** Proposals are usable if they price every current departure airport, even if other inputs changed since. */
 function covers(c: NonNullable<Trip["candidates"]>, members: Member[]) {
@@ -38,7 +39,7 @@ function covers(c: NonNullable<Trip["candidates"]>, members: Member[]) {
 export function destinationsFor(trip: Trip, members: Member[]): { destinations: Destination[]; source: Source } {
   if (!aiEnabled()) return { destinations: FIXTURE_DESTINATIONS, source: "fixture" };
   if (trip.candidates && covers(trip.candidates, members)) return { destinations: trip.candidates.destinations, source: "gemini" };
-  if (jobFresh(trip.jobs?.candidates, candidateKey(trip, members)) === "failed") return { destinations: FIXTURE_DESTINATIONS, source: "fixture" };
+  if (jobFresh(trip.jobs?.candidates, candidateKey(trip, members)) === "failed") return { destinations: FIXTURE_DESTINATIONS, source: "fallback" };
   return { destinations: [], source: "pending" };
 }
 
@@ -116,6 +117,19 @@ export function ensureItinerary(code: string): Promise<void> {
   })().finally(() => itinInflight.delete(code));
   itinInflight.set(code, run);
   return run;
+}
+
+/** Clear failed AI jobs for a trip and start them again. Used by the Retry button after an outage. */
+export async function retryAi(code: string) {
+  const store = await getStore();
+  const trip = await store.getTrip(code);
+  if (!trip) return;
+  const jobs = { ...trip.jobs };
+  if (jobs.candidates?.state === "failed") delete jobs.candidates;
+  if (jobs.itinerary?.state === "failed") delete jobs.itinerary;
+  await store.updateTrip(code, { jobs });
+  background(() => ensureCandidates(code));
+  background(() => ensureItinerary(code));
 }
 
 /** New proposals replace the old ones: drop votes/proposals pointing at destinations that no longer exist. */

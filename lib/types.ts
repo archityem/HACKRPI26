@@ -53,6 +53,7 @@ export interface Member {
   prefs: string[];
   deals: Deal[];
   ready: boolean;
+  hue?: number; // index into the traveler palette, assigned on join so a person keeps one color
 }
 
 export interface Vote {

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
-import { compute, costs, effectiveMax } from "../lib/matching.ts";
+import { compute, costs, effectiveMax, valueCall } from "../lib/matching.ts";
 import { FIXTURE_DESTINATIONS as DESTS } from "../lib/destinations.ts";
 import type { Member, Trip } from "../lib/types.ts";
 
@@ -117,8 +117,27 @@ test("destinations matching more preferences rank higher", () => {
   const r = compute(trip(), [member("a", { prefs: ["culture", "city", "food"] })], DESTS);
   assert.ok(ids(r).indexOf("lisbon") < ids(r).indexOf("cancun"));
 });
-test("at most 5 suggestions are returned", () => {
-  assert.ok(compute(trip(), [member("a")], DESTS).eligible.length <= 5);
+test("at most 8 suggestions are returned", () => {
+  assert.ok(compute(trip(), [member("a")], DESTS).eligible.length <= 8);
+});
+test("visa deal-breaker excludes destinations that need a visa", () => {
+  const visad = { ...DESTS[0], id: "faraway", visaRequired: true, night: 20, daily: 10, flight: { BOS: 100, JFK: 100, ALB: 100 } };
+  const r = compute(trip(), [member("a", { deals: ["visa"] })], [...DESTS, visad]);
+  assert.ok(!ids(r).includes("faraway"));
+  assert.ok(r.excluded.find((d) => d.id === "faraway")!.reasons.some((x) => /visa/i.test(x)));
+});
+test("valueCall: steal / fair / stretch against the ceiling", () => {
+  assert.equal(valueCall(400, 1000).value, "steal");
+  assert.equal(valueCall(750, 1000).value, "fair");
+  assert.equal(valueCall(920, 1000).value, "stretch");
+  assert.match(valueCall(400, 1000, "A bargain for this crew.").valueWhy, /bargain/);
+  assert.equal(valueCall(900, 1000, "An incredible steal for this crew.").value, "steal");
+});
+test("eligible suggestions carry a value call", () => {
+  const r = compute(trip({ maxBudget: 2000 }), [member("a")], DESTS);
+  assert.ok(r.eligible.length);
+  assert.ok(["steal", "fair", "stretch"].includes(r.eligible[0].value));
+  assert.ok(r.eligible[0].valueWhy.length > 0);
 });
 test("a member joining only narrows the options, never widens them", () => {
   const solo = new Set(ids(compute(trip(), [member("a")], DESTS)));

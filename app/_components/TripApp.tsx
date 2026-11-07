@@ -6,7 +6,7 @@ import { CrewView, IdeasView, InviteView, OnboardView, PlanView, type Ctx } from
 
 const POLL_MS = 4000;
 
-export default function TripApp({ code }: { code: string }) {
+export default function TripApp({ code, justCreated }: { code: string; justCreated?: boolean }) {
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
   const [meId, setMeId] = useState<string | null | undefined>(undefined); // undefined = not read from storage yet
@@ -41,13 +41,13 @@ export default function TripApp({ code }: { code: string }) {
 
   const me = snap?.members.find((m) => m.id === meId);
 
-  // The host lands straight in the questions they still owe, once.
+  // After creating a trip, stay on the invite so the host can copy the link first.
   useEffect(() => {
     if (snap && !greeted.current) {
       greeted.current = true;
-      if (me && !me.ready && me.id === snap.trip.hostMemberId) setView("onboard");
+      if (justCreated) toast("Your invite is live. Send the link, then add your own details.");
     }
-  }, [snap, me]);
+  }, [snap, justCreated, toast]);
 
   const run: Ctx["run"] = async (fn, okMsg) => {
     try { setSnap(await fn()); if (okMsg) toast(okMsg); return true; }

@@ -16,7 +16,7 @@ const Body = z
     min: z.number().min(0).default(0),
     max: z.number().positive().max(100_000),
     prefs: z.array(z.string()).min(1),
-    deals: z.array(z.enum(["nonstop", "domestic", "short", "red-eye"])).default([]),
+    deals: z.array(z.enum(["nonstop", "domestic", "short", "red-eye", "visa"])).default([]),
   })
   .refine((b) => b.end >= b.start, { message: "end must be on/after start" })
   .refine((b) => b.min <= b.max, { message: "min must not exceed max" });

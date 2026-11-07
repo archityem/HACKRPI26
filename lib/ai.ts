@@ -62,6 +62,8 @@ const Proposal = z.object({
       stops: z.number().int().min(0),
       domestic: z.boolean(),
       overnight: z.boolean(),
+      visaRequired: z.boolean().optional(),
+      valueTake: z.string().optional(),
     }),
   ),
 });
@@ -110,6 +112,7 @@ export function toDestinations(parsed: Parsed, origins: string[]): Destination[]
       flight: Object.fromEntries(origins.map((o) => [o, fares[o]])),
       night: Math.round(p.lodgingPerNightUsd), daily: Math.round(p.dailySpendUsd * 2) / 2,
       hours: p.flightHours, stops: p.stops, domestic: p.domestic, overnight: p.overnight,
+      visaRequired: Boolean(p.visaRequired), valueTake: p.valueTake?.trim().slice(0, 140) || undefined,
     });
   }
   return destinations;
@@ -137,6 +140,8 @@ Rules:
 - "dailySpendUsd": typical per-person daily food and activities spend.
 - "flightHours": typical one-way duration from the group's airports; "stops": typical minimum number of stops; "overnight": true if the typical itinerary is a red-eye.
 - "domestic": true only for destinations inside the United States (including Puerto Rico).
+- "visaRequired": true only if a typical US tourist needs a visa in advance (not visa-free, ESTA/VWP, or visa on arrival).
+- "valueTake": one short sentence judging whether this trip's estimated all-in price is worth it for this group (steal, fair, or stretch) given the $${trip.maxBudget} ceiling. No dollar amounts.
 - "caption": a short evocative line under 60 characters.
 - "emoji": one emoji.`;
 
@@ -154,6 +159,7 @@ const ItinerarySchema = z.object({
   summary: z.string().min(1),
   days: z.array(z.object({ title: z.string().min(1), morning: z.string().min(1), afternoon: z.string().min(1), evening: z.string().min(1) })),
   tips: z.array(z.string()),
+  stays: z.array(z.object({ name: z.string().min(1), area: z.string().min(1), why: z.string().min(1) })).optional(),
 });
 
 export interface PlanInput {
@@ -183,6 +189,7 @@ export function toItinerary(parsed: z.infer<typeof ItinerarySchema>, i: PlanInpu
   return {
     key: itineraryKey(i), destinationId: i.destination.id, model, generatedAt: new Date().toISOString(),
     summary: cut(parsed.summary, 400), days, tips: parsed.tips.slice(0, 4).map((x) => cut(x, 200)),
+    stays: (parsed.stays ?? []).slice(0, 3).map((s) => ({ name: cut(s.name, 80), area: cut(s.area, 80), why: cut(s.why, 200) })),
   };
 }
 
@@ -202,7 +209,8 @@ Rules:
 - Only name specific places (restaurants, sights, neighborhoods, beaches) that you are confident really exist. If unsure, describe the kind of place instead of inventing a name.
 - Do not state exact prices, opening hours, or booking details. Do not claim anything is booked.
 - Spread the interests across the days and leave some free time.
-- "summary": two sentences on the shape of the trip. "tips": 3 short practical tips for this destination.`;
+- "summary": two sentences on the shape of the trip. "tips": 3 short practical tips for this destination.
+- "stays": 2–3 lodging styles that fit this group (a shared apartment, a small hotel, a beach house, etc.). Name a neighborhood, not a specific hotel unless you are sure it exists. "why" is one sentence.`;
   const { json, model } = await generateJson(prompt, z.toJSONSchema(ItinerarySchema), 0.6);
   return toItinerary(ItinerarySchema.parse(json), i, model);
 }

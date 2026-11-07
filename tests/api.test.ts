@@ -85,6 +85,19 @@ test("a late joiner must also approve before planning unlocks", async () => {
   assert.equal(late.trip.proposal, null); // new member reset the agreement
 });
 
+test("shared trip log unlocks after unanimous approval", async () => {
+  const { body: c } = await j(await post(B, { hostName: "A", title: "T", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 3000 }));
+  await post(`${B}/${c.code}/members`, { memberId: c.memberId, name: "A", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] });
+  const pick = (await j(await fetch(`${B}/${c.code}`))).body.match.eligible[0].id;
+  assert.equal((await post(`${B}/${c.code}/log`, { memberId: c.memberId, lodgingName: "Too soon" })).status, 400);
+  await post(`${B}/${c.code}/proposal`, { memberId: c.memberId, destinationId: pick });
+  await post(`${B}/${c.code}/approve`, { memberId: c.memberId });
+  const log = await j(await post(`${B}/${c.code}/log`, { memberId: c.memberId, checks: ["stay"], lodgingName: "Beach house", lodgingNote: "Walkable." }));
+  assert.equal(log.status, 200);
+  assert.equal(log.body.trip.log.lodgingName, "Beach house");
+  assert.deepEqual(log.body.trip.log.checks, ["stay"]);
+});
+
 test("validation and not-found", async () => {
   assert.equal((await post(B, { hostName: "" })).status, 400);
   assert.equal((await post(B, { hostName: "A", title: "T", windowStart: "2027-03-10", windowEnd: "2027-03-01", nights: 5, maxBudget: 100 })).status, 400);

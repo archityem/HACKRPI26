@@ -119,6 +119,7 @@ export async function snapshot(code: string, me?: string | null) {
   const trip = await store.getTrip(code);
   if (!trip) return null;
   const [members, votes] = await Promise.all([store.listMembers(code), store.listVotes(code)]);
+  if (members.some((m) => m.ready)) void ensureCandidates(code);
   const { destinations, source } = destinationsFor(trip, members);
   const match = compute(trip, members, destinations);
   const planInput = await planInputFor(trip, members);

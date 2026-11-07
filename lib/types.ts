@@ -1,6 +1,7 @@
 export type Theme = "pink" | "pool" | "golden";
 export type Phase = "collecting" | "ideas" | "planning";
-export type Deal = "nonstop" | "domestic" | "short" | "red-eye";
+export type Deal = "nonstop" | "domestic" | "short" | "red-eye" | "visa";
+export type ValueCall = "steal" | "fair" | "stretch";
 
 export interface Trip {
   code: string;
@@ -19,6 +20,7 @@ export interface Trip {
   createdAt: string;
   candidates?: Candidates; // cached destination proposals; fixtures are used when absent
   itinerary?: Itinerary; // cached plan for the approved destination
+  log?: TripLog; // shared planning notes once everyone has approved
 }
 
 export interface Candidates {
@@ -63,6 +65,8 @@ export interface Destination {
   stops: number;
   domestic: boolean;
   overnight: boolean;
+  visaRequired: boolean;
+  valueTake?: string; // short AI line on whether the price is worth it
 }
 
 export interface ItineraryDay {
@@ -73,6 +77,12 @@ export interface ItineraryDay {
   evening: string;
 }
 
+export interface StayIdea {
+  name: string;
+  area: string;
+  why: string;
+}
+
 export interface Itinerary {
   key: string; // hash of the inputs it was generated for
   destinationId: string;
@@ -81,4 +91,12 @@ export interface Itinerary {
   summary: string;
   days: ItineraryDay[];
   tips: string[];
+  stays: StayIdea[];
+}
+
+export interface TripLog {
+  checks: string[];
+  lodgingName: string;
+  lodgingNote: string;
+  updatedAt: string;
 }

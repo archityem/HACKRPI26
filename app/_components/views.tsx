@@ -2,7 +2,8 @@
 import { useMemo, useState } from "react";
 import type { Suggestion } from "@/lib/matching";
 import {
-  AIRPORTS, DEALS, PREFS, airportsFor, api, dayDiff, money, prefLabel, range, short, type PublicMember, type Snapshot,
+  AIRPORTS, DEALS, PASSPORT, PREFS, airportsFor, api, dayDiff, dealsWithPassport, inviteBlurb, money, passportFrom,
+  posterLines, prefLabel, range, short, type PublicMember, type Snapshot,
 } from "@/lib/client";
 import type { Deal } from "@/lib/types";
 import { Btn, type View } from "./Shell";
@@ -19,12 +20,14 @@ export interface Ctx {
 
 const Avatar = ({ m }: { m: PublicMember }) => <span className="ew-avatar" aria-label={m.name}>{m.name.slice(0, 1)}</span>;
 
-export function Poster({ theme }: { theme: string }) {
+export function Poster({ theme, title, year }: { theme: string; title: string; year?: string }) {
+  const { top, mid, end } = posterLines(title);
+  const long = `${top} ${mid ?? ""} ${end}`.length > 22;
   return (
-    <div className="ew-poster" data-theme={theme} aria-label="Trip invitation">
-      <div className="ew-poster-top"><span>ELSEWHERE TRAVEL CLUB</span><span>✳ 2027</span></div>
+    <div className="ew-poster" data-theme={theme} data-size={long ? "long" : undefined} aria-label="Trip invitation">
+      <div className="ew-poster-top"><span>ELSEWHERE TRAVEL CLUB</span><span>✳ {year || "2027"}</span></div>
       <span className="ew-spark" aria-hidden="true">✳</span>
-      <div className="ew-poster-title">spring<br />break<i>out.</i></div>
+      <div className="ew-poster-title">{top}{mid ? <><br />{mid}</> : null}<br /><i>{end}</i></div>
       <div className="ew-sticker">GOOD<br />MEMORIES<br />PENDING ↗</div>
       <div className="ew-poster-bottom"><span>DESTINATION: TOGETHER</span><span>✈ &nbsp; VOL. 01</span></div>
       <div className="ew-curve" />
@@ -62,17 +65,31 @@ function Summary({ ctx }: { ctx: Ctx }) {
 export function InviteView(ctx: Ctx) {
   const { snap, me } = ctx;
   const host = snap.members.find((m) => m.id === snap.trip.hostMemberId);
-  const [copied, setCopied] = useState(false);
+  const isHost = me?.id === snap.trip.hostMemberId;
+  const [copied, setCopied] = useState<"link" | "msg" | "">("");
   const link = typeof window === "undefined" ? "" : window.location.href.split("?")[0];
-  async function copy() {
-    try { await navigator.clipboard.writeText(link); setCopied(true); ctx.toast("Invite link copied."); }
-    catch { ctx.toast("Select the link and copy it."); }
+  const blurb = inviteBlurb(snap.trip, link);
+  const badge = !me ? "You’re invited"
+    : me.ready ? "You’re on the list"
+    : isHost ? "Send it, then add yourself"
+    : "Finish your details";
+  async function copy(kind: "link" | "msg") {
+    const text = kind === "link" ? link : blurb;
+    try { await navigator.clipboard.writeText(text); setCopied(kind); ctx.toast(kind === "link" ? "Invite link copied." : "Message copied. Paste it in the chat."); }
+    catch { ctx.toast("Select the text and copy it."); }
+  }
+  async function share() {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try { await navigator.share({ title: snap.trip.title, text: blurb, url: link }); return; }
+      catch { /* user cancelled or share failed; fall through to copy */ }
+    }
+    copy("msg");
   }
   return (
     <div className="ew-invite">
-      <div><Poster theme={snap.trip.theme} /></div>
+      <div><Poster theme={snap.trip.theme} title={snap.trip.title} year={snap.trip.windowStart.slice(0, 4)} /></div>
       <div className="ew-invite-copy">
-        <span className="ew-badge"><span className="ew-dot" /> You’re on the list</span>
+        <span className="ew-badge"><span className="ew-dot" /> {badge}</span>
         <div><div className="ew-kicker ew-muted" style={{ marginBottom: 10 }}>HOSTED BY {(host?.name ?? "").toUpperCase()}</div><h1>{snap.trip.title}</h1></div>
         {snap.trip.note && <p className="ew-muted">{snap.trip.note}</p>}
         <div className="ew-invite-details">
@@ -83,22 +100,31 @@ export function InviteView(ctx: Ctx) {
           <div className="ew-avatars">{snap.members.map((m) => <Avatar key={m.id} m={m} />)}</div>
           <span><strong>{snap.match.readyCount} of {snap.members.length}</strong> have added their details</span>
         </div>
-        <Btn kind="ew-primary" onClick={() => ctx.go("onboard")}>{me?.ready ? "Edit my trip preferences ↗" : "I’m interested. Let’s do this ↗"}</Btn>
+        {isHost && !me?.ready && (
+          <div className="ew-row" style={{ gap: 8 }}>
+            <Btn kind="ew-primary" onClick={share}>Share with friends ↗</Btn>
+            <Btn kind="ew-lime" onClick={() => ctx.go("onboard")}>Add my airport & dates</Btn>
+          </div>
+        )}
+        {!(isHost && !me?.ready) && (
+          <Btn kind="ew-primary" onClick={() => ctx.go("onboard")}>{me?.ready ? "Edit my trip preferences ↗" : "I’m interested. Let’s do this ↗"}</Btn>
+        )}
         <div className="ew-row" style={{ justifyContent: "space-between" }}>
           <span className="ew-note">Dates, budget, vibes. About a minute.</span>
           <button className="ew-link" onClick={() => ctx.go("ideas")}>Peek at the ideas</button>
         </div>
         <div className="ew-row" style={{ gap: 8 }}>
           <input readOnly value={link} aria-label="Invite link" style={{ flex: 1, minWidth: 0 }} onFocus={(e) => e.currentTarget.select()} />
-          <Btn onClick={copy}>{copied ? "Copied ✓" : "Copy invite link"}</Btn>
+          <Btn onClick={() => copy("link")}>{copied === "link" ? "Copied ✓" : "Copy link"}</Btn>
         </div>
+        <button className="ew-link" onClick={() => copy("msg")} style={{ textAlign: "left" }}>{copied === "msg" ? "Chat message copied ✓" : "Copy a ready-to-paste chat message"}</button>
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------- Onboarding
-interface Draft { name: string; origin: string; start: string; end: string; mode: "max" | "range"; min: number; max: number; prefs: string[]; deals: Deal[] }
+interface Draft { name: string; origin: string; start: string; end: string; mode: "max" | "range"; min: number; max: number; prefs: string[]; deals: Deal[]; passport: "open" | "visa" | "domestic" }
 
 export function OnboardView(ctx: Ctx) {
   const { snap, me } = ctx;
@@ -116,6 +142,7 @@ export function OnboardView(ctx: Ctx) {
     max: Math.min(me?.max ?? 900, t.maxBudget),
     prefs: me?.prefs?.length ? me.prefs : [...t.vibes],
     deals: me?.deals ?? [],
+    passport: passportFrom(me?.deals ?? []),
   }));
   const set = (p: Partial<Draft>) => { setD((x) => ({ ...x, ...p })); setError(""); };
   const steps = ["Your dates", "Your budget", "Your vibe"];
@@ -156,7 +183,7 @@ export function OnboardView(ctx: Ctx) {
     try {
       const res = await api<Snapshot & { memberId: string }>(`/api/trips/${ctx.code}/members`, {
         memberId: me?.id, name: d.name.trim(), origin: d.origin, start: d.start, end: d.end,
-        min: d.mode === "range" ? d.min : 0, max: d.max, prefs: d.prefs, deals: d.deals,
+        min: d.mode === "range" ? d.min : 0, max: d.max, prefs: d.prefs, deals: dealsWithPassport(d.deals, d.passport),
       });
       ctx.onJoined(res.memberId, res);
       ctx.toast("You’re in. Suggestions now include your dates, budget, and preferences.");
@@ -181,6 +208,13 @@ export function OnboardView(ctx: Ctx) {
       <div className="ew-grid2 ew-date-grid">
         <label className="ew-label">Available from<input type="date" min={t.windowStart} max={t.windowEnd} value={d.start} onChange={(e) => set({ start: e.target.value })} /></label>
         <label className="ew-label">Back by<input type="date" min={t.windowStart} max={t.windowEnd} value={d.end} onChange={(e) => set({ end: e.target.value })} /></label>
+      </div>
+      <div className="ew-stack" style={{ gap: 9 }}>
+        <span className="ew-label">International travel</span>
+        <div className="ew-row">{PASSPORT.map((p) => (
+          <button key={p.id} type="button" className="ew-chip" aria-pressed={d.passport === p.id} onClick={() => set({ passport: p.id })}>{p.label}</button>
+        ))}</div>
+        <p className="ew-note">{PASSPORT.find((p) => p.id === d.passport)?.hint}. We’ll keep destinations that don’t work off the list.</p>
       </div>
       <p className="ew-note">Exact break dates work too. These are the days you’re free, not a booking commitment.</p>
     </>
@@ -273,9 +307,11 @@ export function IdeasView(ctx: Ctx) {
                 <span className="ew-small ew-muted">{voters.length} {voters.length === 1 ? "vote" : "votes"}</span>
               </div>
               <div><h3>{d.name}</h3><p className="ew-note" style={{ marginTop: 4 }}>{d.caption}</p></div>
+              <span className="ew-badge ew-worth" data-value={d.value}>{d.value === "steal" ? "✳ Worth it" : d.value === "stretch" ? "Near the ceiling" : "Fair price"}</span>
               <div className="ew-price">{money(mine ? mine.total : avg)} <small>/ person {mine ? `from ${me!.origin}` : "(group average)"}</small></div>
+              <p className="ew-note">{d.valueWhy}</p>
               {mine && <div className="ew-cost-breakdown">✈ {money(mine.flight)} flight &nbsp; · &nbsp; ⌂ {money(mine.stay)} stay<br />+ {money(mine.daily)} daily spend · {range(m.start!, m.tripEnd!)}</div>}
-              <div className="ew-cost-breakdown">Group total {money(d.groupTotal)} · {m.readyCount} {m.readyCount === 1 ? "traveler" : "travelers"}</div>
+              <div className="ew-cost-breakdown">Group total {money(d.groupTotal)} · about {money(avg)} each · {m.readyCount} {m.readyCount === 1 ? "traveler" : "travelers"}</div>
               <div className="ew-match">✓ Within every submitted budget<br />✓ {d.matched.map(prefLabel).slice(0, 3).join(" · ") || "Meets your requirements"}</div>
               <Btn kind="ew-vote" aria-pressed={myVote === d.id} disabled={!me?.ready} onClick={() => vote(d.id)}>{myVote === d.id ? "✓ Your vote" : "This gets my vote"}</Btn>
               <div className="ew-voters">{voters.length ? voters.map((v) => nameOf(v.memberId)).join(" + ") + " voted" : "Be the first to vote"}</div>
@@ -309,7 +345,7 @@ export function IdeasView(ctx: Ctx) {
         <div>
           <div className="ew-kicker ew-muted" style={{ marginBottom: 8 }}>THE POSSIBILITIES ARE LOOKING GOOD</div>
           <h1>Find your somewhere.</h1>
-          <p>{pending.length ? `Early ideas based on ${m.readyCount} ${m.readyCount === 1 ? "traveler" : "travelers"}. Suggestions will update as the crew joins.` : "A shortlist that respects everyone’s dates, budgets, and hard nos."}</p>
+          <p>{pending.length ? `Early ideas based on ${m.readyCount} ${m.readyCount === 1 ? "traveler" : "travelers"}. This shortlist updates as the crew answers — nobody waits on the last reply.` : "A shortlist of 3–8 places that respects everyone’s dates, budgets, and hard nos."}</p>
         </div>
         <span className="ew-badge"><span className="ew-dot" /> {snap.ai.source === "pending" ? "Finding ideas…" : `${m.eligible.length} matching ideas`}</span>
       </div>
@@ -401,6 +437,18 @@ function ItineraryBlock({ snap }: { snap: Snapshot }) {
           <p><strong>Evening.</strong> {d.evening}</p>
         </article>
       ))}</div>
+      {(it.stays?.length ?? 0) > 0 && (
+        <div className="ew-destinations" style={{ marginTop: 16 }}>
+          {(it.stays ?? []).map((s) => (
+            <article className="ew-plan-card ew-stack" key={s.name}>
+              <div className="ew-kicker ew-muted">A PLACE TO LAND</div>
+              <h3>{s.name}</h3>
+              <p className="ew-note">{s.area}</p>
+              <p>{s.why}</p>
+            </article>
+          ))}
+        </div>
+      )}
       {it.tips.length > 0 && (
         <div className="ew-plan-card" style={{ marginTop: 16 }}>
           <h3>Good to know</h3>
@@ -418,9 +466,13 @@ export function PlanView(ctx: Ctx) {
   const m = snap.match;
   const d = m.eligible.find((x) => x.id === snap.trip.proposal);
   const ready = snap.members.filter((x) => x.ready);
-  const [checks, setChecks] = useState<string[]>([]);
+  const log = snap.trip.log ?? { checks: [], lodgingName: "", lodgingNote: "", updatedAt: "" };
+  const [lodgingName, setLodgingName] = useState(log.lodgingName);
+  const [lodgingNote, setLodgingNote] = useState(log.lodgingNote);
   const mine = d && me ? d.perMember[me.id] : null;
   const approvals = snap.trip.approvals;
+  const saveLog = (patch: { checks?: string[]; lodgingName?: string; lodgingNote?: string }) =>
+    me && ctx.run(() => api(`/api/trips/${ctx.code}/log`, { memberId: me.id, ...patch }));
 
   if (!d || !m.start || !m.tripEnd) {
     return (
@@ -435,18 +487,32 @@ export function PlanView(ctx: Ctx) {
 
   if (snap.trip.phase === "planning") {
     const tasks: [string, string, string][] = [["flights", "Compare flights", "Check departure times and baggage."], ["stay", "Choose our home base", "Shortlist a shared stay everyone likes."], ["days", "Make room for the fun", "Add a few must-dos and leave room to wander."]];
+    const checks = log.checks;
+    const toggle = (id: string) => saveLog({ checks: checks.includes(id) ? checks.filter((c) => c !== id) : [...checks, id] });
     return (
       <>
         <div className="ew-celebrate"><span aria-hidden="true">✳</span><div><h2>It made it out of the group chat.</h2><p>All {ready.length} travelers approved {d.name}. {range(m.start, m.tripEnd)} is the plan.</p></div></div>
-        <div className="ew-intro"><div><div className="ew-kicker ew-muted" style={{ marginBottom: 8 }}>THE NEXT CHAPTER</div><h1>Let’s make it a trip.</h1><p>A shared checklist for the details that come next.</p></div></div>
+        <article className="ew-log" aria-label="Trip log">
+          <div className="ew-kicker ew-muted">ELSEWHERE TRIP LOG</div>
+          <h2>{snap.trip.title}</h2>
+          <p><strong>{d.name}</strong> · {range(m.start, m.tripEnd)} · {snap.trip.nights} nights</p>
+          <p className="ew-note">{ready.map((x) => x.name).join(" · ")}</p>
+          {mine && <p className="ew-note">Your estimate {money(mine.total)} from {me!.origin} · group {money(d.groupTotal)}</p>}
+          {log.lodgingName && <p>Stay: {log.lodgingName}{log.lodgingNote ? ` — ${log.lodgingNote}` : ""}</p>}
+        </article>
+        <div className="ew-intro"><div><div className="ew-kicker ew-muted" style={{ marginBottom: 8 }}>THE NEXT CHAPTER</div><h1>Let’s make it a trip.</h1><p>A shared log for lodging and the details that come next. Anyone can update it.</p></div></div>
         <div className="ew-grid2">
           <div className="ew-stack">
             {tasks.map(([id, title, note]) => (
-              <button key={id} className="ew-check" aria-pressed={checks.includes(id)} onClick={() => setChecks(checks.includes(id) ? checks.filter((c) => c !== id) : [...checks, id])}>
+              <button key={id} className="ew-check" aria-pressed={checks.includes(id)} onClick={() => toggle(id)}>
                 <span className="ew-box">{checks.includes(id) ? "✓" : ""}</span><span><strong>{title}</strong><small>{note}</small></span>
               </button>
             ))}
-            <p className="ew-note">Checklist progress only on this device. No bookings or payments have been made.</p>
+            <div className="ew-form" style={{ padding: 18, gap: 12 }}>
+              <label className="ew-label">Lodging we’re circling<input maxLength={80} value={lodgingName} placeholder="A neighborhood, a house, a hotel type…" onChange={(e) => setLodgingName(e.target.value)} onBlur={() => lodgingName !== log.lodgingName && saveLog({ lodgingName })} /></label>
+              <label className="ew-label">Note to the crew<textarea maxLength={280} value={lodgingNote} placeholder="Two bedrooms, walkable, near the beach." onChange={(e) => setLodgingNote(e.target.value)} onBlur={() => lodgingNote !== log.lodgingNote && saveLog({ lodgingNote })} /></label>
+            </div>
+            <p className="ew-note">This log is shared. No bookings or payments have been made.</p>
           </div>
           <aside className="ew-plan-card ew-stack">
             <span className="ew-badge">✓ EVERYONE’S ON BOARD</span>

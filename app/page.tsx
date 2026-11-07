@@ -1,4 +1,5 @@
 import { Shell } from "./_components/Shell";
+import { YourTrips } from "./_components/YourTrips";
 
 export default function Home() {
   return (
@@ -8,6 +9,7 @@ export default function Home() {
         <h1>Plan a trip everyone can say yes to.</h1>
         <p>Group trips die in the chat because planning falls on one person. Set a ceiling, send a link, and let each friend add their real dates, budget, and airport. We shortlist the places that already work.</p>
         <a className="ew-btn ew-primary" href="/new">Start a trip ↗</a>
+        <YourTrips />
       </div>
       <div className="ew-beats">
         <article><em>01</em><strong>Host the invite</strong><p>Name, dates, length, a budget ceiling, and a vibe. That’s the whole brief.</p></article>

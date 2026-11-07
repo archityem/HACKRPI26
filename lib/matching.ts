@@ -98,7 +98,6 @@ export function compute(trip: Trip, members: Member[], destinations: Destination
       if (m.deals.includes("domestic") && !d.domestic) reasons.push("Outside the US");
       if (m.deals.includes("short") && d.hours >= 5) reasons.push("Flight longer than 5 hours");
       if (m.deals.includes("red-eye") && d.overnight) reasons.push("Overnight flight");
-      if (m.deals.includes("visa") && d.visaRequired) reasons.push("Would need a visa");
     }
     const matched = allPrefs.filter((p) => d.tags.includes(p));
     const totals = Object.values(perMember).map((c) => c.total);

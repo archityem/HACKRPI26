@@ -120,12 +120,6 @@ test("destinations matching more preferences rank higher", () => {
 test("at most 8 suggestions are returned", () => {
   assert.ok(compute(trip(), [member("a")], DESTS).eligible.length <= 8);
 });
-test("visa deal-breaker excludes destinations that need a visa", () => {
-  const visad = { ...DESTS[0], id: "faraway", visaRequired: true, night: 20, daily: 10, flight: { BOS: 100, JFK: 100, ALB: 100 } };
-  const r = compute(trip(), [member("a", { deals: ["visa"] })], [...DESTS, visad]);
-  assert.ok(!ids(r).includes("faraway"));
-  assert.ok(r.excluded.find((d) => d.id === "faraway")!.reasons.some((x) => /visa/i.test(x)));
-});
 test("valueCall: steal / fair / stretch against the ceiling", () => {
   assert.equal(valueCall(400, 1000).value, "steal");
   assert.equal(valueCall(750, 1000).value, "fair");

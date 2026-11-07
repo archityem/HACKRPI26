@@ -1,6 +1,8 @@
+import type { InviteTemplate } from "./template";
+
 export type Theme = "pink" | "pool" | "golden";
 export type Phase = "collecting" | "ideas" | "planning";
-export type Deal = "nonstop" | "domestic" | "short" | "red-eye" | "visa";
+export type Deal = "nonstop" | "domestic" | "short" | "red-eye";
 export type ValueCall = "steal" | "fair" | "stretch";
 
 export interface Trip {
@@ -9,6 +11,8 @@ export interface Trip {
   title: string;
   note: string;
   theme: Theme;
+  template?: InviteTemplate; // AI-designed invite look (lib/template.ts); the classic poster when absent
+  cover?: string; // host's invite picture as a data URL (lib/cover.ts); never sent in snapshots
   windowStart: string; // YYYY-MM-DD, host's rough date window
   windowEnd: string;
   nights: number;
@@ -21,6 +25,18 @@ export interface Trip {
   candidates?: Candidates; // cached destination proposals; fixtures are used when absent
   itinerary?: Itinerary; // cached plan for the approved destination
   log?: TripLog; // shared planning notes once everyone has approved
+  jobs?: Jobs; // background AI work, recorded on the trip so every server instance sees it
+}
+
+export interface JobState {
+  key: string; // hash of the inputs the job is for
+  at: string; // ISO time it started / failed
+  state: "running" | "failed";
+}
+
+export interface Jobs {
+  candidates?: JobState;
+  itinerary?: JobState;
 }
 
 export interface Candidates {
@@ -43,6 +59,7 @@ export interface Member {
   prefs: string[];
   deals: Deal[];
   ready: boolean;
+  hue?: number; // index into the traveler palette, assigned on join so a person keeps one color
 }
 
 export interface Vote {
@@ -65,7 +82,6 @@ export interface Destination {
   stops: number;
   domestic: boolean;
   overnight: boolean;
-  visaRequired: boolean;
   valueTake?: string; // short AI line on whether the price is worth it
 }
 
@@ -91,7 +107,7 @@ export interface Itinerary {
   summary: string;
   days: ItineraryDay[];
   tips: string[];
-  stays: StayIdea[];
+  stays?: StayIdea[];
 }
 
 export interface TripLog {

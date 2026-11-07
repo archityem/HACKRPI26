@@ -18,10 +18,9 @@ test("inviteBlurb is a paste-ready chat message", () => {
   assert.match(t, /abc/);
 });
 
-test("passport maps onto domestic / visa deal-breakers", () => {
+test("passport maps onto the domestic deal-breaker", () => {
   assert.equal(passportFrom(["nonstop", "domestic"]), "domestic");
-  assert.equal(passportFrom(["visa"]), "visa");
   assert.equal(passportFrom(["nonstop"]), "open");
-  assert.deepEqual(dealsWithPassport(["nonstop", "domestic"], "visa"), ["nonstop", "visa"]);
-  assert.deepEqual(dealsWithPassport(["visa"], "open"), []);
+  assert.deepEqual(dealsWithPassport(["nonstop"], "domestic"), ["nonstop", "domestic"]);
+  assert.deepEqual(dealsWithPassport(["domestic"], "open"), []);
 });

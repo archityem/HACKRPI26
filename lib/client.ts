@@ -4,15 +4,17 @@ import type { Deal, Member, Theme, Trip, Vote } from "./types";
 // Shapes the API returns, shared by the UI.
 export type PublicMember = Omit<Member, "min" | "max"> & { min?: number; max?: number };
 
+export type PublicTrip = Omit<Trip, "cover"> & { coverUrl: string | null };
+
 export interface Snapshot {
-  trip: Trip;
+  trip: PublicTrip;
   members: PublicMember[];
   votes: Vote[];
   me: string | null;
   ai: {
     enabled: boolean;
     generating: boolean; // Gemini is currently proposing destinations
-    source: "gemini" | "fixture" | "pending"; // pending = AI on, proposals not ready yet
+    source: "gemini" | "fixture" | "fallback" | "pending"; // fallback = AI failed, sample data stands in; pending = not ready yet
     model?: string;
     itinerary: "off" | "ready" | "generating" | "failed";
   };
@@ -49,9 +51,8 @@ export const DEALS: [Deal, string][] = [
   ["nonstop", "Nonstop flights only"],
   ["short", "Flights under 5 hours"], ["red-eye", "No overnight flights"],
 ];
-export const PASSPORT: { id: "open" | "visa" | "domestic"; label: string; hint: string }[] = [
+export const PASSPORT: { id: "open" | "domestic"; label: string; hint: string }[] = [
   { id: "open", label: "Passport ready", hint: "International is fine" },
-  { id: "visa", label: "Easy entry only", hint: "Skip visa paperwork" },
   { id: "domestic", label: "US only", hint: "No passport / stay domestic" },
 ];
 export const THEMES: { id: Theme; color: string; label: string }[] = [
@@ -59,11 +60,11 @@ export const THEMES: { id: Theme; color: string; label: string }[] = [
   { id: "pool", color: "#b9dfe4", label: "Pool club" },
   { id: "golden", color: "#f5b777", label: "Golden hour" },
 ];
-export const passportFrom = (deals: Deal[]): "open" | "visa" | "domestic" =>
-  deals.includes("domestic") ? "domestic" : deals.includes("visa") ? "visa" : "open";
-export const dealsWithPassport = (deals: Deal[], passport: "open" | "visa" | "domestic"): Deal[] => [
-  ...deals.filter((d) => d !== "domestic" && d !== "visa"),
-  ...(passport === "domestic" ? ["domestic" as const] : passport === "visa" ? ["visa" as const] : []),
+export const passportFrom = (deals: Deal[]): "open" | "domestic" =>
+  deals.includes("domestic") ? "domestic" : "open";
+export const dealsWithPassport = (deals: Deal[], passport: "open" | "domestic"): Deal[] => [
+  ...deals.filter((d) => d !== "domestic"),
+  ...(passport === "domestic" ? ["domestic" as const] : []),
 ];
 
 /** Split a trip title into the stacked poster lines. */
@@ -111,4 +112,20 @@ export const loadMemberId = (code: string): string | null => {
 };
 export const saveMemberId = (code: string, id: string) => {
   try { localStorage.setItem(key(code), id); } catch { /* storage unavailable: session-only */ }
+};
+
+// ---- Traveler colors: stored as an index on the member, rendered through the --ew-t0..--ew-t7 CSS variables.
+export const hueVar = (m: { hue?: number }, fallbackIndex = 0) => `var(--ew-t${(m.hue ?? fallbackIndex) % 8})`;
+
+// ---- Trips this device has opened, for the home page. Device-local, never sent anywhere.
+export interface RememberedTrip { code: string; title: string; at: string }
+const TRIPS_KEY = "elsewhere:trips";
+export const listTrips = (): RememberedTrip[] => {
+  try { return JSON.parse(localStorage.getItem(TRIPS_KEY) ?? "[]") as RememberedTrip[]; } catch { return []; }
+};
+export const rememberTrip = (code: string, title: string) => {
+  try {
+    const rest = listTrips().filter((t) => t.code !== code);
+    localStorage.setItem(TRIPS_KEY, JSON.stringify([{ code, title, at: new Date().toISOString() }, ...rest].slice(0, 12)));
+  } catch { /* storage unavailable: the list just won't persist */ }
 };

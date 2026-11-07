@@ -37,12 +37,10 @@ test("toDestinations: duplicate names get unique ids", () => {
   const ids = toDestinations(parsed(raw("Paris"), raw("Paris"), raw("Paris")), ["BOS", "JFK"]).map((d) => d.id);
   assert.equal(new Set(ids).size, 3);
 });
-test("toDestinations: visaRequired and valueTake are optional and sanitized", () => {
-  const [a] = toDestinations(parsed(raw("A", { visaRequired: true, valueTake: "  Steal.  " + "x".repeat(200) })), ["BOS", "JFK"]);
-  assert.equal(a.visaRequired, true);
+test("toDestinations: valueTake is optional and sanitized", () => {
+  const [a] = toDestinations(parsed(raw("A", { valueTake: "  Steal.  " + "x".repeat(200) })), ["BOS", "JFK"]);
   assert.ok((a.valueTake ?? "").length <= 140);
   const [b] = toDestinations(parsed(raw("B")), ["BOS", "JFK"]);
-  assert.equal(b.visaRequired, false);
   assert.equal(b.valueTake, undefined);
 });
 test("toDestinations: extra origins from the model are ignored", () => {
@@ -80,25 +78,25 @@ const day = (t: string) => ({ title: t, morning: "m", afternoon: "a", evening: "
 
 test("toItinerary: stays default to empty and cap at 3", () => {
   const it = toItinerary({ summary: "s", days: [day("1")], tips: [], stays: Array.from({ length: 5 }, (_, n) => ({ name: `n${n}`, area: "a", why: "w" })) }, plan(), "m");
-  assert.equal(it.stays.length, 3);
+  assert.equal(it.stays?.length, 3);
   assert.deepEqual(toItinerary({ summary: "s", days: [day("1")], tips: [] }, plan(), "m").stays, []);
 });
 test("toItinerary: dates each day from the start date, in order", () => {
   const it = toItinerary({ summary: "s", days: [day("1"), day("2"), day("3")], tips: [] }, plan(), "m");
   assert.deepEqual(it.days.map((d) => d.date), ["2027-03-08", "2027-03-09", "2027-03-10"]);
 });
-test("toItinerary: never more than nights+1 days, tips capped at 4", () => {
+test("toItinerary: never more than nights+1 days, tips capped at 3", () => {
   const days = Array.from({ length: 12 }, (_, n) => day(String(n)));
   const it = toItinerary({ summary: "s", days, tips: ["1", "2", "3", "4", "5", "6"] }, plan({ nights: 5 }), "m");
   assert.equal(it.days.length, 6);
-  assert.equal(it.tips.length, 4);
+  assert.equal(it.tips.length, 3);
 });
 test("toItinerary: empty output is rejected", () => {
   assert.throws(() => toItinerary({ summary: "s", days: [], tips: [] }, plan(), "m"));
 });
 test("toItinerary: overlong text is trimmed", () => {
   const it = toItinerary({ summary: "s", days: [{ ...day("x"), morning: "z".repeat(5000) }], tips: [] }, plan(), "m");
-  assert.ok(it.days[0].morning.length <= 400);
+  assert.ok(it.days[0].morning.length <= 110);
 });
 test("itineraryKey: same for same plan, different when destination, dates, interests, or group change", () => {
   const base = itineraryKey(plan());

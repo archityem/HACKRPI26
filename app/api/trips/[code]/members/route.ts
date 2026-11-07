@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { compute } from "@/lib/matching";
 import { getStore } from "@/lib/store";
+import { background } from "@/lib/background";
 import { destinationsFor, ensureCandidates, newId, resetAgreement, snapshot } from "@/lib/trips";
 import type { Member } from "@/lib/types";
+
+// AI work runs via after() once the response is sent; give it room to finish (Gemini can take ~20s).
+export const maxDuration = 60;
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 const Body = z
@@ -42,7 +46,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
   // Constraints changed: clear proposal/approvals, refresh destination ideas in the background,
   // and drop votes for ideas that no longer fit (only once ideas exist; "pending" means none yet).
   await resetAgreement(trip);
-  void ensureCandidates(code);
+  background(() => ensureCandidates(code));
   const members = await store.listMembers(code);
   const { destinations, source } = destinationsFor((await store.getTrip(code))!, members);
   if (source !== "pending") {

@@ -19,6 +19,18 @@ export interface Trip {
   createdAt: string;
   candidates?: Candidates; // cached destination proposals; fixtures are used when absent
   itinerary?: Itinerary; // cached plan for the approved destination
+  jobs?: Jobs; // background AI work, recorded on the trip so every server instance sees it
+}
+
+export interface JobState {
+  key: string; // hash of the inputs the job is for
+  at: string; // ISO time it started / failed
+  state: "running" | "failed";
+}
+
+export interface Jobs {
+  candidates?: JobState;
+  itinerary?: JobState;
 }
 
 export interface Candidates {

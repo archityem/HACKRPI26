@@ -3,6 +3,9 @@ import { z } from "zod";
 import { getStore } from "@/lib/store";
 import { snapshot } from "@/lib/trips";
 
+// AI work runs via after() once the response is sent; give it room to finish (Gemini can take ~20s).
+export const maxDuration = 60;
+
 const Body = z.object({ memberId: z.string() });
 
 export async function POST(req: Request, { params }: { params: Promise<{ code: string }> }) {

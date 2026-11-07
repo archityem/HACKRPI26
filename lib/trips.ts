@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { aiEnabled, candidateKey, itineraryKey, planItinerary, proposeDestinations, type PlanInput } from "./ai";
+import { coverUrl } from "./cover";
 import { background } from "./background";
 import { FIXTURE_DESTINATIONS } from "./destinations";
 import { jobFresh } from "./jobs";
@@ -158,8 +159,9 @@ export async function snapshot(code: string, me?: string | null) {
   const view = members.map((m) =>
     m.id === me ? m : { ...m, min: undefined, max: undefined },
   ) as Array<Member | Omit<Member, "min" | "max">>;
+  const { cover, ...publicTrip } = trip; // the picture is served separately, not on every poll
   return {
-    trip,
+    trip: { ...publicTrip, coverUrl: cover ? coverUrl(code) : null },
     members: view,
     votes,
     me: me ?? null,

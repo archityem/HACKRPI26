@@ -1,3 +1,5 @@
+import type { InviteTemplate } from "./template";
+
 export type Theme = "pink" | "pool" | "golden";
 export type Phase = "collecting" | "ideas" | "planning";
 export type Deal = "nonstop" | "domestic" | "short" | "red-eye";
@@ -8,6 +10,8 @@ export interface Trip {
   title: string;
   note: string;
   theme: Theme;
+  template?: InviteTemplate; // AI-designed invite look (lib/template.ts); the classic poster when absent
+  cover?: string; // host's invite picture as a data URL (lib/cover.ts); never sent in snapshots
   windowStart: string; // YYYY-MM-DD, host's rough date window
   windowEnd: string;
   nights: number;

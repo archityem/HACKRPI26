@@ -4,6 +4,7 @@ import type { Suggestion } from "@/lib/matching";
 import {
   AIRPORTS, DEALS, PREFS, airportsFor, api, dayDiff, money, prefLabel, range, short, type PublicMember, type Snapshot,
 } from "@/lib/client";
+import { FONT_STACK, contrast, type InviteTemplate } from "@/lib/template";
 import { buildIcs } from "@/lib/ics";
 import { inviteMessage, itineraryText, nudgeMessage } from "@/lib/messages";
 import type { Deal } from "@/lib/types";
@@ -58,9 +59,39 @@ function WaitPanel({ snap }: { snap: Snapshot }) {
   );
 }
 
-export function Poster({ theme }: { theme: string }) {
+/**
+ * The invite card. With a `photo` (URL or data URL), the host's picture fills it and the mood tints it.
+ * With a `template` (AI-designed, already sanitized), its layout, palette, fonts and words replace the classic poster.
+ */
+export function Poster({ theme, photo, template }: { theme: string; photo?: string | null; template?: InviteTemplate | null }) {
+  if (template) {
+    const { palette: p, headline, layout, deco } = template;
+    const longest = Math.max(...headline.map((l) => l.length), 5);
+    const style = {
+      "--poster": p.bg, "--accent": p.accent, "--head": FONT_STACK[template.font],
+      "--sticker-ink": contrast(p.accent, "#1b1b1b") >= contrast(p.accent, "#ffffff") ? "#1b1b1b" : "#ffffff",
+      "--hs": Math.min(17, 140 / longest), // headline size in cqw: long lines shrink so they fit the card
+      // Over a photo the text is always white (set in CSS); otherwise use the template's own ink.
+      ...(photo ? {} : { "--poster-ink": p.ink }),
+    } as React.CSSProperties;
+    return (
+      <div className="ew-poster" data-theme={theme} data-photo={photo ? "" : undefined} data-tpl={layout} data-deco={deco} data-font={template.font} style={style} aria-label="Trip invitation">
+        {photo && <img className="ew-poster-photo" src={photo} alt="" />}
+        {(deco === "dots" || deco === "stripes") && <div className="ew-deco" aria-hidden="true" />}
+        <div className="ew-poster-top"><span>{template.kicker}</span><span aria-hidden="true">{template.motif}</span></div>
+        {deco === "spark" && <span className="ew-spark" aria-hidden="true">{template.motif}</span>}
+        <div className="ew-poster-title">
+          {headline.map((l, i) => (i === headline.length - 1 ? <i key={i}>{l}</i> : <span key={i}>{l}<br /></span>))}
+        </div>
+        <div className="ew-sticker">{template.sticker}</div>
+        <div className="ew-poster-bottom"><span>{template.footer}</span><span aria-hidden="true">{template.motif} {template.motif} {template.motif}</span></div>
+        {deco === "curves" && <div className="ew-curve" />}
+      </div>
+    );
+  }
   return (
-    <div className="ew-poster" data-theme={theme} aria-label="Trip invitation">
+    <div className="ew-poster" data-theme={theme} data-photo={photo ? "" : undefined} aria-label="Trip invitation">
+      {photo && <img className="ew-poster-photo" src={photo} alt="" />}
       <div className="ew-poster-top"><span>ELSEWHERE TRAVEL CLUB</span><span>✳ 2027</span></div>
       <span className="ew-spark" aria-hidden="true">✳</span>
       <div className="ew-poster-title">spring<br />break<i>out.</i></div>
@@ -109,7 +140,7 @@ export function InviteView(ctx: Ctx) {
   }
   return (
     <div className="ew-invite">
-      <div><Poster theme={snap.trip.theme} /></div>
+      <div><Poster theme={snap.trip.theme} photo={snap.trip.coverUrl} template={snap.trip.template} /></div>
       <div className="ew-invite-copy">
         <span className="ew-badge"><span className="ew-dot" /> You’re on the list</span>
         <div><div className="ew-kicker ew-muted" style={{ marginBottom: 10 }}>HOSTED BY {(host?.name ?? "").toUpperCase()}</div><h1>{snap.trip.title}</h1></div>

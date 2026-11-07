@@ -14,6 +14,7 @@ export interface Snapshot {
     generating: boolean; // Gemini is currently proposing destinations
     source: "gemini" | "fixture" | "pending"; // pending = AI on, proposals not ready yet
     model?: string;
+    itinerary: "off" | "ready" | "generating" | "failed";
   };
   match: {
     start: string | null;

@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
-import type { Candidates, Destination, Member, Trip } from "./types";
+import { addDays } from "./matching.ts";
+import type { Candidates, Destination, Itinerary, Member, Trip } from "./types";
 
 // Fares and lodging from the model are ESTIMATES, not live prices. The UI labels them that way.
 
@@ -145,4 +146,63 @@ Rules:
   const destinations = toDestinations(parsed, origins);
   if (!destinations.length) throw new Error("Gemini returned no usable destinations");
   return { key: candidateKey(trip, members), source: "gemini", model, generatedAt: new Date().toISOString(), destinations };
+}
+
+// ---- Itinerary ---------------------------------------------------------------------------------
+
+const ItinerarySchema = z.object({
+  summary: z.string().min(1),
+  days: z.array(z.object({ title: z.string().min(1), morning: z.string().min(1), afternoon: z.string().min(1), evening: z.string().min(1) })),
+  tips: z.array(z.string()),
+});
+
+export interface PlanInput {
+  destination: Destination;
+  start: string;
+  nights: number;
+  prefs: string[];
+  deals: string[];
+  travelers: number;
+}
+
+export function itineraryKey(i: PlanInput): string {
+  const uniq = (a: string[]) => [...new Set(a)].sort();
+  return createHash("sha1")
+    .update(JSON.stringify([i.destination.id, i.start, i.nights, uniq(i.prefs), uniq(i.deals), i.travelers]))
+    .digest("hex")
+    .slice(0, 16);
+}
+
+/** Model output -> itinerary: exactly nights+1 dated days at most, trimmed strings, capped tips. */
+export function toItinerary(parsed: z.infer<typeof ItinerarySchema>, i: PlanInput, model: string): Itinerary {
+  const cut = (s: string, n: number) => s.trim().slice(0, n);
+  const days = parsed.days.slice(0, i.nights + 1).map((d, n) => ({
+    date: addDays(i.start, n), title: cut(d.title, 80), morning: cut(d.morning, 400), afternoon: cut(d.afternoon, 400), evening: cut(d.evening, 400),
+  }));
+  if (!days.length) throw new Error("Gemini returned an empty itinerary");
+  return {
+    key: itineraryKey(i), destinationId: i.destination.id, model, generatedAt: new Date().toISOString(),
+    summary: cut(parsed.summary, 400), days, tips: parsed.tips.slice(0, 4).map((x) => cut(x, 200)),
+  };
+}
+
+export async function planItinerary(i: PlanInput): Promise<Itinerary> {
+  const dates = Array.from({ length: i.nights + 1 }, (_, n) => `Day ${n + 1}: ${addDays(i.start, n)}`).join("\n");
+  const prompt = `Write a relaxed, realistic itinerary for ${i.travelers} friends visiting ${i.destination.name}, ${i.destination.country}.
+
+Trip: ${i.nights} nights, ${i.nights + 1} days:
+${dates}
+Day 1 is arrival and the last day is departure, so keep those lighter.
+The group's interests: ${i.prefs.join(", ") || "no strong preference"}.
+Hard requirements: ${i.deals.length ? i.deals.join(", ") : "none"}.
+Typical budget level: about $${Math.round(i.destination.daily)} per person per day for food and activities.
+
+Rules:
+- Return exactly ${i.nights + 1} days, in order, each with a short title and one paragraph each for morning, afternoon, and evening.
+- Only name specific places (restaurants, sights, neighborhoods, beaches) that you are confident really exist. If unsure, describe the kind of place instead of inventing a name.
+- Do not state exact prices, opening hours, or booking details. Do not claim anything is booked.
+- Spread the interests across the days and leave some free time.
+- "summary": two sentences on the shape of the trip. "tips": 3 short practical tips for this destination.`;
+  const { json, model } = await generateJson(prompt, z.toJSONSchema(ItinerarySchema), 0.6);
+  return toItinerary(ItinerarySchema.parse(json), i, model);
 }

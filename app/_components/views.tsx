@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import type { Suggestion } from "@/lib/matching";
 import {
-  AIRPORTS, DEALS, PREFS, airportsFor, api, dayDiff, money, prefLabel, range, type PublicMember, type Snapshot,
+  AIRPORTS, DEALS, PREFS, airportsFor, api, dayDiff, money, prefLabel, range, short, type PublicMember, type Snapshot,
 } from "@/lib/client";
 import type { Deal } from "@/lib/types";
 import { Btn, type View } from "./Shell";
@@ -374,6 +374,44 @@ export function CrewView(ctx: Ctx) {
   );
 }
 
+function ItineraryBlock({ snap }: { snap: Snapshot }) {
+  const st = snap.ai.itinerary;
+  const it = snap.trip.itinerary;
+  if (st === "off") return null;
+  if (st !== "ready" || !it) {
+    return (
+      <div className="ew-plan-card" style={{ marginTop: 20 }} aria-live="polite">
+        <h3>{st === "failed" ? "We couldn’t draft an itinerary this time." : "Writing your itinerary…"}</h3>
+        <p className="ew-note" style={{ marginTop: 6 }}>{st === "failed" ? "The checklist above still works. Reopen destination planning and approve again to retry." : "This usually takes 10–20 seconds, and this page updates by itself."}</p>
+      </div>
+    );
+  }
+  return (
+    <section style={{ marginTop: 28 }} aria-label="Itinerary">
+      <div className="ew-intro">
+        <div><div className="ew-kicker ew-muted" style={{ marginBottom: 8 }}>A FIRST DRAFT</div><h2>Your itinerary.</h2><p>{it.summary}</p></div>
+        <span className="ew-badge">✳ AI-drafted</span>
+      </div>
+      <div className="ew-destinations">{it.days.map((d, i) => (
+        <article className="ew-plan-card ew-stack" key={d.date}>
+          <div className="ew-kicker ew-muted">DAY {i + 1} · {short(d.date).toUpperCase()}</div>
+          <h3>{d.title}</h3>
+          <p><strong>Morning.</strong> {d.morning}</p>
+          <p><strong>Afternoon.</strong> {d.afternoon}</p>
+          <p><strong>Evening.</strong> {d.evening}</p>
+        </article>
+      ))}</div>
+      {it.tips.length > 0 && (
+        <div className="ew-plan-card" style={{ marginTop: 16 }}>
+          <h3>Good to know</h3>
+          <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{it.tips.map((x) => <li key={x} className="ew-note">{x}</li>)}</ul>
+        </div>
+      )}
+      <p className="ew-note" style={{ marginTop: 12 }}>AI-generated suggestions. Check hours, availability, and prices before you go; nothing here is booked.</p>
+    </section>
+  );
+}
+
 // ---------------------------------------------------------------- Plan (approval + planning)
 export function PlanView(ctx: Ctx) {
   const { snap, me } = ctx;
@@ -421,6 +459,7 @@ export function PlanView(ctx: Ctx) {
             <button className="ew-link" onClick={reconsider}>Reopen destination planning</button>
           </aside>
         </div>
+        <ItineraryBlock snap={snap} />
       </>
     );
   }

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { aiEnabled, candidateKey, proposeDestinations } from "./ai";
+import { aiEnabled, candidateKey, itineraryKey, planItinerary, proposeDestinations, type PlanInput } from "./ai";
 import { FIXTURE_DESTINATIONS } from "./destinations";
 import { compute } from "./matching";
 import { getStore } from "./store";
@@ -61,6 +61,49 @@ export function ensureCandidates(code: string): Promise<void> {
   return run;
 }
 
+// ---- Itinerary (generated once everyone has approved) ----------------------------------------
+
+const itinInflight = new Map<string, Promise<void>>();
+const itinFailed = new Map<string, string>(); // trip code -> key that failed
+
+async function planInputFor(trip: Trip, members: Member[]): Promise<PlanInput | null> {
+  if (trip.phase !== "planning" || !trip.proposal) return null;
+  const { destinations } = destinationsFor(trip, members);
+  const match = compute(trip, members, destinations);
+  const destination = match.eligible.find((d) => d.id === trip.proposal);
+  if (!destination || !match.start) return null;
+  const ready = members.filter((m) => m.ready);
+  return {
+    destination, start: match.start, nights: trip.nights, travelers: ready.length,
+    prefs: [...trip.vibes, ...ready.flatMap((m) => m.prefs)], deals: ready.flatMap((m) => m.deals),
+  };
+}
+
+/** Generate the itinerary in the background once the group has approved. Safe to call often; never throws. */
+export function ensureItinerary(code: string): Promise<void> {
+  if (!aiEnabled()) return Promise.resolve();
+  const running = itinInflight.get(code);
+  if (running) return running;
+  const run = (async () => {
+    const store = await getStore();
+    const trip = await store.getTrip(code);
+    if (!trip) return;
+    const input = await planInputFor(trip, await store.listMembers(code));
+    if (!input) return;
+    const key = itineraryKey(input);
+    if (trip.itinerary?.key === key || itinFailed.get(code) === key) return;
+    try {
+      await store.updateTrip(code, { itinerary: await planItinerary(input) });
+      itinFailed.delete(code);
+    } catch (e) {
+      console.error(`[ai] planItinerary failed for ${code}:`, e instanceof Error ? e.message : e);
+      itinFailed.set(code, key);
+    }
+  })().finally(() => itinInflight.delete(code));
+  itinInflight.set(code, run);
+  return run;
+}
+
 /** New proposals replace the old ones: drop votes/proposals pointing at destinations that no longer exist. */
 async function pruneToDestinations(code: string, destinations: Destination[]) {
   const store = await getStore();
@@ -78,6 +121,9 @@ export async function snapshot(code: string, me?: string | null) {
   const [members, votes] = await Promise.all([store.listMembers(code), store.listVotes(code)]);
   const { destinations, source } = destinationsFor(trip, members);
   const match = compute(trip, members, destinations);
+  const planInput = await planInputFor(trip, members);
+  const itinKey = planInput ? itineraryKey(planInput) : null;
+  if (planInput) void ensureItinerary(code);
   const view = members.map((m) =>
     m.id === me ? m : { ...m, min: undefined, max: undefined },
   ) as Array<Member | Omit<Member, "min" | "max">>;
@@ -86,7 +132,10 @@ export async function snapshot(code: string, me?: string | null) {
     members: view,
     votes,
     me: me ?? null,
-    ai: { enabled: aiEnabled(), generating: inflight.has(code), source, model: trip.candidates?.model },
+    ai: {
+      enabled: aiEnabled(), generating: inflight.has(code), source, model: trip.candidates?.model,
+      itinerary: itineraryStatus(trip, itinKey, itinInflight.has(code), itinKey !== null && itinFailed.get(code) === itinKey),
+    },
     match: {
       start: match.start,
       end: match.end,
@@ -103,4 +152,11 @@ export async function snapshot(code: string, me?: string | null) {
 export async function resetAgreement(trip: Trip) {
   const store = await getStore();
   await store.updateTrip(trip.code, { proposal: null, approvals: [], phase: "ideas" });
+}
+
+function itineraryStatus(trip: Trip, key: string | null, generating: boolean, failed: boolean): "off" | "ready" | "generating" | "failed" {
+  if (!aiEnabled()) return "off";
+  if (key && trip.itinerary?.key === key) return "ready";
+  if (generating) return "generating";
+  return failed ? "failed" : "generating"; // not started yet counts as generating: it starts on this very request
 }

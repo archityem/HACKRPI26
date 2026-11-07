@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PREFS, api, dayDiff, money, saveMemberId } from "@/lib/client";
+import { PREFS, api, dayDiff, money, rememberTrip, saveMemberId } from "@/lib/client";
 import type { InviteTemplate } from "@/lib/template";
 import type { Theme } from "@/lib/types";
 import { Btn, Shell } from "@/app/_components/Shell";
@@ -29,6 +29,7 @@ export default function NewTrip() {
         ...f, hostName: f.hostName.trim(), title: f.title.trim(), note: f.note.trim(), cover: f.cover || undefined, template: f.template ?? undefined,
       });
       saveMemberId(r.code, r.memberId);
+      rememberTrip(r.code, f.title.trim());
       router.push(`/t/${r.code}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn’t create the trip.");

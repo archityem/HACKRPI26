@@ -45,3 +45,31 @@ body{background:#fbf9f4}
 #elsewhere-app .ew-tpl-row{display:flex;gap:12px;flex-wrap:wrap}#elsewhere-app .ew-tpl{padding:0;border:0;background:none;border-radius:14px;outline:2px solid transparent;outline-offset:3px;width:104px;flex:0 0 auto;text-align:left}#elsewhere-app .ew-tpl[aria-pressed=true]{outline-color:var(--ew-ink)}
 #elsewhere-app .ew-tpl-thumb{width:104px;height:114px;overflow:hidden;border-radius:14px;position:relative}#elsewhere-app .ew-tpl-inner{width:280px;transform:scale(.3714);transform-origin:top left;pointer-events:none}#elsewhere-app .ew-tpl-thumb .ew-poster{aspect-ratio:1/1.1;padding:20px;border-radius:0}
 #elsewhere-app .ew-tpl-skel{width:104px;height:114px;border-radius:14px;background:var(--ew-line);animation:ew-pulse 1.1s ease-in-out infinite alternate}@keyframes ew-pulse{to{opacity:.45}}
+
+/* ---- Added features, in the original look ---- */
+#elsewhere-app{--ew-t0:light-dark(#2b6cb0,#6aa8f0);--ew-t1:light-dark(#b83280,#ee7cb8);--ew-t2:light-dark(#b7791f,#e3b04b);--ew-t3:light-dark(#2f855a,#62c28d);--ew-t4:light-dark(#6b46c1,#a58cf0);--ew-t5:light-dark(#0e7490,#4fc3d9);--ew-t6:light-dark(#c53030,#f08a8a);--ew-t7:light-dark(#4a5568,#a0aec0)}
+#elsewhere-app .ew-avail{display:grid;margin-bottom:24px;background:var(--ew-panel);border:1px solid var(--ew-line);border-radius:var(--ew-radius);padding:18px 20px}
+#elsewhere-app .ew-avail h3{margin-bottom:10px}
+#elsewhere-app .ew-avail-head,#elsewhere-app .ew-avail-row{display:grid;grid-template-columns:96px minmax(0,1fr);gap:12px;align-items:center}
+#elsewhere-app .ew-avail-head{font-size:11px;color:var(--ew-muted);padding-bottom:4px}
+#elsewhere-app .ew-avail-head .ends{display:flex;justify-content:space-between}
+#elsewhere-app .ew-avail-row{height:34px}
+#elsewhere-app .ew-avail-name{display:flex;align-items:center;gap:8px;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#elsewhere-app .ew-avail-dot{width:20px;height:20px;border-radius:50%;display:inline-grid;place-items:center;flex:none;color:#fff;font-size:10px;font-weight:700}
+#elsewhere-app .ew-avail-dot[data-waiting="true"]{background:transparent!important;color:var(--ew-muted);border:1.5px dashed var(--ew-muted)}
+#elsewhere-app .ew-avail-track{position:relative;height:100%;background:repeating-linear-gradient(to right,transparent 0,transparent calc(25% - 1px),var(--ew-line) calc(25% - 1px),var(--ew-line) 25%)}
+#elsewhere-app .ew-avail-bar{position:absolute;top:10px;bottom:10px;border-radius:99px;opacity:.92}
+#elsewhere-app .ew-avail-shared{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--ew-lime) 38%,transparent);border-inline:1.5px solid var(--ew-green)}
+#elsewhere-app .ew-avail-wait{position:absolute;left:4px;top:50%;transform:translateY(-50%);z-index:1;padding:1px 8px;background:var(--ew-panel);border-radius:99px;color:var(--ew-muted);font-size:11px;white-space:nowrap}
+#elsewhere-app .ew-avail-foot{padding-top:12px;font-size:12px}
+#elsewhere-app .ew-sharebox{display:grid;gap:10px;margin-top:20px;background:var(--ew-panel);border:1px solid var(--ew-line);border-radius:var(--ew-radius);padding:18px 20px;margin-bottom:24px}
+#elsewhere-app .ew-sharebox input{width:100%;min-height:42px;padding:8px 14px;border-radius:12px;border:1px solid var(--ew-line);background:var(--ew-bg);color:var(--ew-ink)}
+#elsewhere-app .ew-wait-list{display:grid;grid-template-columns:max-content 1fr;gap:6px 18px;margin:6px 0 0;font-size:13px;text-align:left}
+#elsewhere-app .ew-wait-list dt{color:var(--ew-muted)}#elsewhere-app .ew-wait-list dd{margin:0}
+#elsewhere-app .ew-wait-bar{height:4px;width:min(320px,70%);border-radius:2px;background:var(--ew-line);overflow:hidden}
+#elsewhere-app .ew-wait-bar::after{content:"";display:block;height:100%;width:35%;background:var(--ew-green);animation:ewslide 1.4s ease-in-out infinite}
+@keyframes ewslide{0%{transform:translateX(-100%)}100%{transform:translateX(300%)}}
+@media(prefers-reduced-motion:reduce){#elsewhere-app .ew-wait-bar::after{animation:none;width:100%;opacity:.4}}
+#elsewhere-app .ew-trips{display:grid;border-top:1px solid var(--ew-line);width:min(520px,100%);text-align:left;margin-top:8px}
+#elsewhere-app .ew-trips a{display:flex;justify-content:space-between;gap:12px;padding:12px 2px;border-bottom:1px solid var(--ew-line);text-decoration:none;color:inherit}
+#elsewhere-app .ew-trips a:hover strong{text-decoration:underline}

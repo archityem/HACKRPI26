@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   // Host starts as a member who still has to answer the individual questions.
   const host: Member = {
     id: memberId, tripCode: code, name: b.hostName, origin: "", start: b.windowStart, end: b.windowEnd,
-    min: 0, max: b.maxBudget, prefs: b.vibes, deals: [], ready: false,
+    min: 0, max: b.maxBudget, prefs: b.vibes, deals: [], ready: false, hue: 0,
   };
   await (await getStore()).createTrip(trip, host);
   return NextResponse.json({ code, memberId }, { status: 201 });

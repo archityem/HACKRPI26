@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, loadMemberId, saveMemberId, type Snapshot } from "@/lib/client";
+import { api, loadMemberId, rememberTrip, saveMemberId, type Snapshot } from "@/lib/client";
 import { Shell, type View } from "./Shell";
 import { CrewView, IdeasView, InviteView, OnboardView, PlanView, type Ctx } from "./views";
 
@@ -45,6 +45,7 @@ export default function TripApp({ code }: { code: string }) {
   useEffect(() => {
     if (snap && !greeted.current) {
       greeted.current = true;
+      if (me) rememberTrip(code, snap.trip.title);
       if (me && !me.ready && me.id === snap.trip.hostMemberId) setView("onboard");
     }
   }, [snap, me]);
@@ -69,7 +70,7 @@ export default function TripApp({ code }: { code: string }) {
   const ctx: Ctx = {
     code, snap, me, run, toast,
     go: setView,
-    onJoined: (id, fresh) => { saveMemberId(code, id); setMeId(id); setSnap(fresh); },
+    onJoined: (id, fresh) => { saveMemberId(code, id); rememberTrip(code, fresh.trip.title); setMeId(id); setSnap(fresh); },
   };
   // Render as components (not plain calls) so each view keeps its own hooks.
   const View = { invite: InviteView, onboard: OnboardView, ideas: IdeasView, crew: CrewView, plan: PlanView }[view];

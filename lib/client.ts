@@ -1,0 +1,64 @@
+import type { Suggestion } from "./matching";
+import type { Deal, Member, Trip, Vote } from "./types";
+
+// Shapes the API returns, shared by the UI.
+export type PublicMember = Omit<Member, "min" | "max"> & { min?: number; max?: number };
+
+export interface Snapshot {
+  trip: Trip;
+  members: PublicMember[];
+  votes: Vote[];
+  me: string | null;
+  match: {
+    start: string | null;
+    end: string | null;
+    tripEnd: string | null;
+    overlap: boolean;
+    readyCount: number;
+    eligible: Suggestion[];
+    excluded: { id: string; name: string; reasons: string[] }[];
+  };
+}
+
+// Only these airports have sample fares in lib/destinations.ts.
+export const AIRPORTS: Record<string, string> = { BOS: "Boston · BOS", JFK: "New York · JFK", ALB: "Albany · ALB" };
+
+export const PREFS: [string, string, string][] = [
+  ["beach", "🏖", "Beach days"], ["food", "🍜", "Good food"], ["nature", "🌿", "Outdoors"],
+  ["nightlife", "🪩", "Nightlife"], ["culture", "🏛", "Art & culture"], ["city", "🏙", "City exploring"],
+];
+export const prefLabel = (id: string) => PREFS.find((p) => p[0] === id)?.[2] ?? id;
+
+export const DEALS: [Deal, string][] = [
+  ["nonstop", "Nonstop flights only"], ["domestic", "US destinations only"],
+  ["short", "Flights under 5 hours"], ["red-eye", "No overnight flights"],
+];
+
+export const money = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
+const day = (d: string) => new Date(d + "T12:00:00");
+export const short = (d: string) => day(d).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+export const range = (a: string, b: string) => short(a) + " – " + short(b);
+export const dayDiff = (a: string, b: string) => Math.round((day(b).getTime() - day(a).getTime()) / 86_400_000);
+
+export class ApiError extends Error {}
+
+export async function api<T = Snapshot>(url: string, body?: unknown): Promise<T> {
+  const res = await fetch(url, body === undefined ? undefined : {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const e = (data as { error?: unknown }).error;
+    throw new ApiError(typeof e === "string" ? e : Array.isArray(e) ? e.map((i: { message: string }) => i.message).join("; ") : "Something went wrong");
+  }
+  return data as T;
+}
+
+// Who "you" are on this device for a given trip. No login: the id lives in localStorage.
+const key = (code: string) => `elsewhere:member:${code}`;
+export const loadMemberId = (code: string): string | null => {
+  try { return localStorage.getItem(key(code)); } catch { return null; }
+};
+export const saveMemberId = (code: string, id: string) => {
+  try { localStorage.setItem(key(code), id); } catch { /* storage unavailable: session-only */ }
+};

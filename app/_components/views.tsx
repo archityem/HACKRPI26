@@ -380,34 +380,33 @@ function ItineraryBlock({ snap }: { snap: Snapshot }) {
   if (st === "off") return null;
   if (st !== "ready" || !it) {
     return (
-      <div className="ew-plan-card" style={{ marginTop: 20 }} aria-live="polite">
+      <div className="ew-plan-card" aria-live="polite">
         <h3>{st === "failed" ? "We couldn’t draft an itinerary this time." : "Writing your itinerary…"}</h3>
-        <p className="ew-note" style={{ marginTop: 6 }}>{st === "failed" ? "The checklist above still works. Reopen destination planning and approve again to retry." : "This usually takes 10–20 seconds, and this page updates by itself."}</p>
+        <p className="ew-note" style={{ marginTop: 6 }}>{st === "failed" ? "The checklist below still works. Reopen destination planning and approve again to retry." : "This usually takes 10–20 seconds, and this page updates by itself."}</p>
       </div>
     );
   }
   return (
-    <section style={{ marginTop: 28 }} aria-label="Itinerary">
-      <div className="ew-intro">
-        <div><div className="ew-kicker ew-muted" style={{ marginBottom: 8 }}>A FIRST DRAFT</div><h2>Your itinerary.</h2><p>{it.summary}</p></div>
+    <section aria-label="Itinerary">
+      <div className="ew-row" style={{ justifyContent: "space-between", alignItems: "baseline", gap: 12, marginBottom: 12 }}>
+        <div><h2>Your itinerary</h2><p className="ew-note" style={{ marginTop: 4 }}>{it.summary}</p></div>
         <span className="ew-badge">✳ AI-drafted</span>
       </div>
       <div className="ew-destinations">{it.days.map((d, i) => (
-        <article className="ew-plan-card ew-stack" key={d.date}>
+        <article className="ew-plan-card" key={d.date}>
           <div className="ew-kicker ew-muted">DAY {i + 1} · {short(d.date).toUpperCase()}</div>
-          <h3>{d.title}</h3>
-          <p><strong>Morning.</strong> {d.morning}</p>
-          <p><strong>Afternoon.</strong> {d.afternoon}</p>
-          <p><strong>Evening.</strong> {d.evening}</p>
+          <h3 style={{ margin: "6px 0 10px" }}>{d.title}</h3>
+          <ul style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 8 }}>
+            <li><strong>Morning:</strong> {d.morning}</li>
+            <li><strong>Afternoon:</strong> {d.afternoon}</li>
+            <li><strong>Evening:</strong> {d.evening}</li>
+          </ul>
         </article>
       ))}</div>
       {it.tips.length > 0 && (
-        <div className="ew-plan-card" style={{ marginTop: 16 }}>
-          <h3>Good to know</h3>
-          <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>{it.tips.map((x) => <li key={x} className="ew-note">{x}</li>)}</ul>
-        </div>
+        <p className="ew-note" style={{ marginTop: 14 }}><strong>Good to know:</strong> {it.tips.join(" · ")}</p>
       )}
-      <p className="ew-note" style={{ marginTop: 12 }}>AI-generated suggestions. Check hours, availability, and prices before you go; nothing here is booked.</p>
+      <p className="ew-note" style={{ marginTop: 8 }}>AI-generated suggestions. Check hours and prices before you go; nothing is booked.</p>
     </section>
   );
 }
@@ -438,7 +437,8 @@ export function PlanView(ctx: Ctx) {
     return (
       <>
         <div className="ew-celebrate"><span aria-hidden="true">✳</span><div><h2>It made it out of the group chat.</h2><p>All {ready.length} travelers approved {d.name}. {range(m.start, m.tripEnd)} is the plan.</p></div></div>
-        <div className="ew-intro"><div><div className="ew-kicker ew-muted" style={{ marginBottom: 8 }}>THE NEXT CHAPTER</div><h1>Let’s make it a trip.</h1><p>A shared checklist for the details that come next.</p></div></div>
+        <ItineraryBlock snap={snap} />
+        <div className="ew-divider" style={{ margin: "26px 0" }} />
         <div className="ew-grid2">
           <div className="ew-stack">
             {tasks.map(([id, title, note]) => (
@@ -459,7 +459,6 @@ export function PlanView(ctx: Ctx) {
             <button className="ew-link" onClick={reconsider}>Reopen destination planning</button>
           </aside>
         </div>
-        <ItineraryBlock snap={snap} />
       </>
     );
   }

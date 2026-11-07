@@ -74,18 +74,18 @@ test("toItinerary: dates each day from the start date, in order", () => {
   const it = toItinerary({ summary: "s", days: [day("1"), day("2"), day("3")], tips: [] }, plan(), "m");
   assert.deepEqual(it.days.map((d) => d.date), ["2027-03-08", "2027-03-09", "2027-03-10"]);
 });
-test("toItinerary: never more than nights+1 days, tips capped at 4", () => {
+test("toItinerary: never more than nights+1 days, tips capped at 3", () => {
   const days = Array.from({ length: 12 }, (_, n) => day(String(n)));
   const it = toItinerary({ summary: "s", days, tips: ["1", "2", "3", "4", "5", "6"] }, plan({ nights: 5 }), "m");
   assert.equal(it.days.length, 6);
-  assert.equal(it.tips.length, 4);
+  assert.equal(it.tips.length, 3);
 });
 test("toItinerary: empty output is rejected", () => {
   assert.throws(() => toItinerary({ summary: "s", days: [], tips: [] }, plan(), "m"));
 });
 test("toItinerary: overlong text is trimmed", () => {
   const it = toItinerary({ summary: "s", days: [{ ...day("x"), morning: "z".repeat(5000) }], tips: [] }, plan(), "m");
-  assert.ok(it.days[0].morning.length <= 400);
+  assert.ok(it.days[0].morning.length <= 110);
 });
 test("itineraryKey: same for same plan, different when destination, dates, interests, or group change", () => {
   const base = itineraryKey(plan());

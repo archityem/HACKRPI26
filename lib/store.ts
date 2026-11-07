@@ -23,7 +23,8 @@ interface Data {
   votes: Vote[];
 }
 
-const FILE = path.join(process.cwd(), "data", "db.json");
+// DATA_FILE lets tests use their own file instead of the one the dev server is using.
+const FILE = process.env.DATA_FILE || path.join(process.cwd(), "data", "db.json");
 let queue: Promise<unknown> = Promise.resolve();
 
 async function read(): Promise<Data> {

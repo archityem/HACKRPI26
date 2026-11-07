@@ -156,6 +156,9 @@ const ItinerarySchema = z.object({
   tips: z.array(z.string()),
 });
 
+// Bump when the itinerary prompt or shape changes, so cached itineraries in the old style are regenerated.
+const PROMPT_VERSION = 2;
+
 export interface PlanInput {
   destination: Destination;
   start: string;
@@ -168,21 +171,21 @@ export interface PlanInput {
 export function itineraryKey(i: PlanInput): string {
   const uniq = (a: string[]) => [...new Set(a)].sort();
   return createHash("sha1")
-    .update(JSON.stringify([i.destination.id, i.start, i.nights, uniq(i.prefs), uniq(i.deals), i.travelers]))
+    .update(JSON.stringify([PROMPT_VERSION, i.destination.id, i.start, i.nights, uniq(i.prefs), uniq(i.deals), i.travelers]))
     .digest("hex")
     .slice(0, 16);
 }
 
-/** Model output -> itinerary: exactly nights+1 dated days at most, trimmed strings, capped tips. */
+/** Model output -> itinerary: at most nights+1 dated days, trimmed strings, at most 3 short tips. */
 export function toItinerary(parsed: z.infer<typeof ItinerarySchema>, i: PlanInput, model: string): Itinerary {
   const cut = (s: string, n: number) => s.trim().slice(0, n);
   const days = parsed.days.slice(0, i.nights + 1).map((d, n) => ({
-    date: addDays(i.start, n), title: cut(d.title, 80), morning: cut(d.morning, 400), afternoon: cut(d.afternoon, 400), evening: cut(d.evening, 400),
+    date: addDays(i.start, n), title: cut(d.title, 50), morning: cut(d.morning, 110), afternoon: cut(d.afternoon, 110), evening: cut(d.evening, 110),
   }));
   if (!days.length) throw new Error("Gemini returned an empty itinerary");
   return {
     key: itineraryKey(i), destinationId: i.destination.id, model, generatedAt: new Date().toISOString(),
-    summary: cut(parsed.summary, 400), days, tips: parsed.tips.slice(0, 4).map((x) => cut(x, 200)),
+    summary: cut(parsed.summary, 160), days, tips: parsed.tips.slice(0, 3).map((x) => cut(x, 100)),
   };
 }
 
@@ -198,11 +201,12 @@ Hard requirements: ${i.deals.length ? i.deals.join(", ") : "none"}.
 Typical budget level: about $${Math.round(i.destination.daily)} per person per day for food and activities.
 
 Rules:
-- Return exactly ${i.nights + 1} days, in order, each with a short title and one paragraph each for morning, afternoon, and evening.
-- Only name specific places (restaurants, sights, neighborhoods, beaches) that you are confident really exist. If unsure, describe the kind of place instead of inventing a name.
+- Return exactly ${i.nights + 1} days, in order. Each day has a title of 2-5 words, plus ONE short bullet each for morning, afternoon, and evening.
+- Every bullet is a fragment of 12 words or fewer, with no full sentences, e.g. "Walk the old town, lunch at a plaza café".
+- Only name specific places (restaurants, sights, neighborhoods, beaches) that you are confident really exist. If unsure, name the kind of place instead.
 - Do not state exact prices, opening hours, or booking details. Do not claim anything is booked.
-- Spread the interests across the days and leave some free time.
-- "summary": two sentences on the shape of the trip. "tips": 3 short practical tips for this destination.`;
+- Spread the interests across the days.
+- "summary": ONE sentence of 20 words or fewer. "tips": exactly 3 practical tips of 12 words or fewer each.`;
   const { json, model } = await generateJson(prompt, z.toJSONSchema(ItinerarySchema), 0.6);
   return toItinerary(ItinerarySchema.parse(json), i, model);
 }

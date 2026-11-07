@@ -12,7 +12,7 @@ const post = (url: string, body: unknown) =>
 const j = async (r: Response) => ({ status: r.status, body: (await r.json()) as any });
 
 before(async () => {
-  server = spawn("npx", ["next", "dev", "-p", String(PORT)], { env: { ...process.env, MONGODB_URI: "", GEMINI_API_KEY: "", NEXT_DIST_DIR: ".next-test" }, stdio: "ignore", detached: true });
+  server = spawn("npx", ["next", "dev", "-p", String(PORT)], { env: { ...process.env, MONGODB_URI: "", GEMINI_API_KEY: "", NEXT_DIST_DIR: ".next-test", DATA_FILE: "data/test-db.json" }, stdio: "ignore", detached: true });
   for (let i = 0; i < 60; i++) {
     try { await fetch(`http://localhost:${PORT}/`); return; } catch { await new Promise((r) => setTimeout(r, 1000)); }
   }

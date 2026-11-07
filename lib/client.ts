@@ -4,8 +4,10 @@ import type { Deal, Member, Trip, Vote } from "./types";
 // Shapes the API returns, shared by the UI.
 export type PublicMember = Omit<Member, "min" | "max"> & { min?: number; max?: number };
 
+export type PublicTrip = Omit<Trip, "cover"> & { coverUrl: string | null };
+
 export interface Snapshot {
-  trip: Trip;
+  trip: PublicTrip;
   members: PublicMember[];
   votes: Vote[];
   me: string | null;

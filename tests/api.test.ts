@@ -85,6 +85,49 @@ test("a late joiner must also approve before planning unlocks", async () => {
   assert.equal(late.trip.proposal, null); // new member reset the agreement
 });
 
+test("host's invite picture is stored, kept out of snapshots, and served on its own", async () => {
+  const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, ...Array(60).fill(7)]);
+  const base = { hostName: "A", title: "T", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 1000, theme: "pool" };
+  const { body: c } = await j(await post(B, { ...base, cover: `data:image/jpeg;base64,${jpeg.toString("base64")}` }));
+  const s = (await j(await fetch(`${B}/${c.code}`))).body;
+  assert.equal(s.trip.theme, "pool");
+  assert.equal(s.trip.cover, undefined);
+  assert.equal(s.trip.coverUrl, `/api/trips/${c.code}/cover`);
+  const img = await fetch(`http://localhost:${PORT}${s.trip.coverUrl}`);
+  assert.equal(img.status, 200);
+  assert.equal(img.headers.get("content-type"), "image/jpeg");
+  assert.equal(img.headers.get("x-content-type-options"), "nosniff");
+  assert.deepEqual(Buffer.from(await img.arrayBuffer()), jpeg);
+
+  // Without a picture: no URL, and the cover route 404s.
+  const { body: plain } = await j(await post(B, base));
+  assert.equal((await j(await fetch(`${B}/${plain.code}`))).body.trip.coverUrl, null);
+  assert.equal((await fetch(`${B}/${plain.code}/cover`)).status, 404);
+  // Not an image, or lying about its type: rejected.
+  assert.equal((await post(B, { ...base, cover: `data:image/png;base64,${jpeg.toString("base64")}` })).status, 400);
+  assert.equal((await post(B, { ...base, cover: "data:text/html;base64,PGgxPmhpPC9oMT4=" })).status, 400);
+});
+
+test("AI invite templates: 3 designs from the title, and a stored template is sanitized", async () => {
+  const brief = { title: "Girls cabin weekend", note: "Hot tubs and board games", hostName: "Maya", vibes: ["nature"] };
+  const r = await j(await post(`http://localhost:${PORT}/api/templates`, brief));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.templates.length, 3);
+  assert.equal(r.body.source, "fallback"); // tests run with GEMINI_API_KEY unset
+  assert.equal(new Set(r.body.templates.map((t: any) => t.layout)).size, 3);
+  assert.equal((await post(`http://localhost:${PORT}/api/templates`, { title: "" })).status, 400);
+
+  const base = { hostName: "A", title: "T", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 1000 };
+  const evil = { ...r.body.templates[0], headline: ["<img onerror=x>"], palette: { bg: "url(x)", ink: "#000000", accent: "#ffffff" }, layout: "nope" };
+  const { body: c } = await j(await post(B, { ...base, template: evil }));
+  const t = (await j(await fetch(`${B}/${c.code}`))).body.trip.template;
+  assert.equal(t.layout, "poster");
+  assert.ok(!t.headline.join("").includes("<"));
+  assert.match(t.palette.bg, /^#[0-9a-f]{6}$/);
+  assert.equal((await post(B, { ...base, template: "not a template" })).status, 400);
+  assert.equal((await j(await fetch(`${B}/${(await j(await post(B, base))).body.code}`))).body.trip.template, undefined);
+});
+
 test("validation and not-found", async () => {
   assert.equal((await post(B, { hostName: "" })).status, 400);
   assert.equal((await post(B, { hostName: "A", title: "T", windowStart: "2027-03-10", windowEnd: "2027-03-01", nights: 5, maxBudget: 100 })).status, 400);

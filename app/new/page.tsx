@@ -2,12 +2,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PREFS, api, dayDiff, money, saveMemberId } from "@/lib/client";
+import type { InviteTemplate } from "@/lib/template";
+import type { Theme } from "@/lib/types";
 import { Btn, Shell } from "@/app/_components/Shell";
+import { CoverPicker } from "./CoverPicker";
 
 export default function NewTrip() {
   const router = useRouter();
   const [f, setF] = useState({
-    hostName: "", title: "Spring break, somewhere.", note: "", theme: "pink",
+    hostName: "", title: "Spring break, somewhere.", note: "", theme: "pink" as Theme, cover: "", template: null as InviteTemplate | null,
     windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 1200, vibes: [] as string[],
   });
   const [error, setError] = useState("");
@@ -22,7 +25,9 @@ export default function NewTrip() {
     if (!(f.maxBudget > 0)) return setError("Set a maximum budget above $0.");
     setBusy(true);
     try {
-      const r = await api<{ code: string; memberId: string }>("/api/trips", { ...f, hostName: f.hostName.trim(), title: f.title.trim(), note: f.note.trim() });
+      const r = await api<{ code: string; memberId: string }>("/api/trips", {
+        ...f, hostName: f.hostName.trim(), title: f.title.trim(), note: f.note.trim(), cover: f.cover || undefined, template: f.template ?? undefined,
+      });
       saveMemberId(r.code, r.memberId);
       router.push(`/t/${r.code}`);
     } catch (e) {
@@ -40,6 +45,10 @@ export default function NewTrip() {
           <label className="ew-label">Trip title<input maxLength={65} value={f.title} onChange={(e) => set({ title: e.target.value })} /></label>
         </div>
         <label className="ew-label">A note to the crew<textarea maxLength={250} value={f.note} placeholder="One beach. Good people." onChange={(e) => set({ note: e.target.value })} /></label>
+        <CoverPicker
+          theme={f.theme} cover={f.cover} template={f.template} onChange={set}
+          brief={{ title: f.title, note: f.note, vibes: f.vibes, hostName: f.hostName, windowStart: f.windowStart }}
+        />
         <div className="ew-grid2 ew-date-grid">
           <label className="ew-label">Earliest departure<input type="date" value={f.windowStart} onChange={(e) => set({ windowStart: e.target.value })} /></label>
           <label className="ew-label">Latest return<input type="date" value={f.windowEnd} onChange={(e) => set({ windowEnd: e.target.value })} /></label>

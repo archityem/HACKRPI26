@@ -17,6 +17,15 @@ export interface Trip {
   proposal: string | null; // destination id
   approvals: string[]; // member ids
   createdAt: string;
+  candidates?: Candidates; // cached destination proposals; fixtures are used when absent
+}
+
+export interface Candidates {
+  key: string; // hash of the inputs the proposals were generated for
+  source: "gemini";
+  model: string;
+  generatedAt: string;
+  destinations: Destination[];
 }
 
 export interface Member {

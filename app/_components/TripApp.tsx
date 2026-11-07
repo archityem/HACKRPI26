@@ -74,5 +74,5 @@ export default function TripApp({ code }: { code: string }) {
   // Render as components (not plain calls) so each view keeps its own hooks.
   const View = { invite: InviteView, onboard: OnboardView, ideas: IdeasView, crew: CrewView, plan: PlanView }[view];
 
-  return <Shell view={view} onNav={setView} toast={toastMsg} footerNote={`Trip ${code} · sample fares`}><View key={view} {...ctx} /></Shell>;
+  return <Shell view={view} onNav={setView} toast={toastMsg} footerNote={`Trip ${code} · ${snap.ai.source === "gemini" ? "AI-estimated fares" : "sample fares"}`}><View key={view} {...ctx} /></Shell>;
 }

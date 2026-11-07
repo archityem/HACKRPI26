@@ -9,6 +9,12 @@ export interface Snapshot {
   members: PublicMember[];
   votes: Vote[];
   me: string | null;
+  ai: {
+    enabled: boolean;
+    generating: boolean; // Gemini is currently proposing destinations
+    source: "gemini" | "fixture" | "pending"; // pending = AI on, proposals not ready yet
+    model?: string;
+  };
   match: {
     start: string | null;
     end: string | null;
@@ -20,8 +26,17 @@ export interface Snapshot {
   };
 }
 
-// Only these airports have sample fares in lib/destinations.ts.
-export const AIRPORTS: Record<string, string> = { BOS: "Boston · BOS", JFK: "New York · JFK", ALB: "Albany · ALB" };
+// Without AI, only these airports have sample fares (lib/destinations.ts).
+export const SAMPLE_AIRPORTS: Record<string, string> = { BOS: "Boston · BOS", JFK: "New York · JFK", ALB: "Albany · ALB" };
+// With AI, any airport can be priced, so offer a broader list.
+export const AIRPORTS: Record<string, string> = {
+  ...SAMPLE_AIRPORTS,
+  EWR: "Newark · EWR", LGA: "New York · LGA", PHL: "Philadelphia · PHL", DCA: "Washington · DCA", IAD: "Washington · IAD",
+  BWI: "Baltimore · BWI", PIT: "Pittsburgh · PIT", BUF: "Buffalo · BUF", SYR: "Syracuse · SYR", ORD: "Chicago · ORD",
+  ATL: "Atlanta · ATL", MIA: "Miami · MIA", DFW: "Dallas · DFW", DEN: "Denver · DEN", LAX: "Los Angeles · LAX",
+  SFO: "San Francisco · SFO", SEA: "Seattle · SEA", BNA: "Nashville · BNA", CLT: "Charlotte · CLT", MSP: "Minneapolis · MSP",
+};
+export const airportsFor = (ai: boolean) => (ai ? AIRPORTS : SAMPLE_AIRPORTS);
 
 export const PREFS: [string, string, string][] = [
   ["beach", "🏖", "Beach days"], ["food", "🍜", "Good food"], ["nature", "🌿", "Outdoors"],

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { FIXTURE_DESTINATIONS } from "@/lib/destinations";
 import { compute } from "@/lib/matching";
 import { getStore } from "@/lib/store";
-import { newId, resetAgreement, snapshot } from "@/lib/trips";
+import { destinationsFor, ensureCandidates, newId, resetAgreement, snapshot } from "@/lib/trips";
 import type { Member } from "@/lib/types";
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -40,12 +39,17 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
   };
   await store.upsertMember(member);
 
-  // Constraints changed: clear proposal/approvals, and drop votes for ideas that no longer fit.
+  // Constraints changed: clear proposal/approvals, refresh destination ideas in the background,
+  // and drop votes for ideas that no longer fit (only once ideas exist; "pending" means none yet).
   await resetAgreement(trip);
+  void ensureCandidates(code);
   const members = await store.listMembers(code);
-  const eligible = new Set(compute(trip, members, FIXTURE_DESTINATIONS).eligible.map((d) => d.id));
-  for (const v of await store.listVotes(code)) {
-    if (!eligible.has(v.destinationId)) await store.deleteVote(code, v.memberId);
+  const { destinations, source } = destinationsFor((await store.getTrip(code))!, members);
+  if (source !== "pending") {
+    const eligible = new Set(compute(trip, members, destinations).eligible.map((d) => d.id));
+    for (const v of await store.listVotes(code)) {
+      if (!eligible.has(v.destinationId)) await store.deleteVote(code, v.memberId);
+    }
   }
   return NextResponse.json({ memberId: member.id, ...(await snapshot(code, member.id)) });
 }

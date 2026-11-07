@@ -2,7 +2,7 @@
 import { useMemo, useState } from "react";
 import type { Suggestion } from "@/lib/matching";
 import {
-  AIRPORTS, DEALS, PREFS, api, dayDiff, money, prefLabel, range, type PublicMember, type Snapshot,
+  AIRPORTS, DEALS, PREFS, airportsFor, api, dayDiff, money, prefLabel, range, type PublicMember, type Snapshot,
 } from "@/lib/client";
 import type { Deal } from "@/lib/types";
 import { Btn, type View } from "./Shell";
@@ -32,9 +32,14 @@ export function Poster({ theme }: { theme: string }) {
   );
 }
 
+// The CSS has a palette for each sample city; AI-proposed cities borrow one, chosen stably from their id.
+const ART_PALETTES = ["sanjuan", "cancun", "miami", "lisbon", "costarica"];
+const artFor = (id: string) =>
+  ART_PALETTES.includes(id) ? id : ART_PALETTES[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % ART_PALETTES.length];
+
 function Art({ d }: { d: Suggestion }) {
   return (
-    <div className="ew-art" data-art={d.id}>
+    <div className="ew-art" data-art={artFor(d.id)}>
       <span className="ew-stamp">{d.country.toUpperCase()}</span><span className="ew-sun" />
       <div className="ew-art-title">{d.name}</div><span className="ew-art-emoji" aria-hidden="true">{d.emoji}</span>
     </div>
@@ -103,7 +108,7 @@ export function OnboardView(ctx: Ctx) {
   const [saving, setSaving] = useState(false);
   const [d, setD] = useState<Draft>(() => ({
     name: me?.name ?? "",
-    origin: me?.origin && AIRPORTS[me.origin] ? me.origin : "BOS",
+    origin: me?.origin && airportsFor(snap.ai.enabled)[me.origin] ? me.origin : "BOS",
     start: me?.ready ? me.start : t.windowStart,
     end: me?.ready ? me.end : t.windowEnd,
     mode: (me?.min ?? 0) > 0 ? "range" : "max",
@@ -167,7 +172,7 @@ export function OnboardView(ctx: Ctx) {
       <div><h2>When can you escape?</h2><p className="ew-subtitle">Add your available window. We’ll fit a {t.nights}-night trip inside it.</p></div>
       <div className="ew-grid2">
         <label className="ew-label">Your name<input maxLength={28} value={d.name} placeholder="What should we call you?" autoComplete="given-name" onChange={(e) => set({ name: e.target.value })} /></label>
-        <label className="ew-label">Flying from<select value={d.origin} onChange={(e) => set({ origin: e.target.value })}>{Object.entries(AIRPORTS).map(([v, tx]) => <option key={v} value={v}>{tx}</option>)}</select></label>
+        <label className="ew-label">Flying from<select value={d.origin} onChange={(e) => set({ origin: e.target.value })}>{Object.entries(airportsFor(snap.ai.enabled)).map(([v, tx]) => <option key={v} value={v}>{tx}</option>)}</select></label>
       </div>
       <div className="ew-stack" style={{ gap: 9 }}>
         <span className="ew-label">Free the whole time?</span>
@@ -279,12 +284,20 @@ export function IdeasView(ctx: Ctx) {
         );
       })}</div>
     );
+  } else if (snap.ai.source === "pending" && m.overlap && m.readyCount) {
+    cards = (
+      <div className="ew-empty" aria-live="polite">
+        <span className="ew-empty-icon">✳</span>
+        <h2>Finding places for your crew…</h2>
+        <p>We’re matching your dates, budgets, and vibes to destinations. This usually takes 10–20 seconds, and this page updates by itself.</p>
+      </div>
+    );
   } else {
     cards = (
       <div className="ew-empty">
         <span className="ew-empty-icon">☁</span>
         <h2>{!m.overlap && m.readyCount ? "Let’s find some common ground." : m.readyCount ? "A little adjustment could go a long way." : "No one’s added details yet."}</h2>
-        <p>{!m.readyCount ? "Add your details to see the first ideas." : !m.overlap ? `There isn’t a shared ${snap.trip.nights}-night window yet. Review the crew’s dates, or edit your availability.` : "None of the sample trips meet every budget and dealbreaker. Review the reasons below, then choose what you’re comfortable changing."}</p>
+        <p>{!m.readyCount ? "Add your details to see the first ideas." : !m.overlap ? `There isn’t a shared ${snap.trip.nights}-night window yet. Review the crew’s dates, or edit your availability.` : "None of the trips we found meet every budget and dealbreaker. Review the reasons below, then choose what you’re comfortable changing."}</p>
         <Btn kind="ew-primary" onClick={() => ctx.go(m.readyCount ? "crew" : "onboard")}>{m.readyCount ? "Review the crew" : "Add my details"}</Btn>
       </div>
     );
@@ -298,10 +311,10 @@ export function IdeasView(ctx: Ctx) {
           <h1>Find your somewhere.</h1>
           <p>{pending.length ? `Early ideas based on ${m.readyCount} ${m.readyCount === 1 ? "traveler" : "travelers"}. Suggestions will update as the crew joins.` : "A shortlist that respects everyone’s dates, budgets, and hard nos."}</p>
         </div>
-        <span className="ew-badge"><span className="ew-dot" /> {m.eligible.length} matching ideas</span>
+        <span className="ew-badge"><span className="ew-dot" /> {snap.ai.source === "pending" ? "Finding ideas…" : `${m.eligible.length} matching ideas`}</span>
       </div>
       <Summary ctx={ctx} />
-      <p className="ew-note" style={{ margin: "-9px 0 17px" }}>Illustrative fares & lodging estimates · totals include {snap.trip.nights} nights and daily spending.</p>
+      <p className="ew-note" style={{ margin: "-9px 0 17px" }}>{snap.ai.source === "gemini" ? "AI-estimated fares & lodging (not live prices)" : "Illustrative fares & lodging estimates"} · totals include {snap.trip.nights} nights and daily spending.</p>
       {!me?.ready && (
         <div className="ew-proposal" style={{ margin: "0 0 20px" }}>
           <div><strong>Your preferences are missing.</strong><p>Add your details to shape these ideas and join the vote.</p></div>

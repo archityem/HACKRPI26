@@ -1,10 +1,10 @@
-# Five-agent crew for Elsewhere
+# Five-agent crew for Tripflow
 
 You oversee. These bots do the work. You only talk to **Overseer**.
 
 Repo: `https://github.com/archityem/HACKRPI26`  
 Live site: `https://hackrpi-26.vercel.app`  
-Local branch (ahead of production): `archit-branch`
+Production branch: `main`. New work branches off `main`. Do not treat any other branch as the working branch.
 
 ## You have two different dashboards
 
@@ -64,7 +64,7 @@ Give each bot its first message from that file. Ask it to remember the job.
 
 You message **Overseer** only, for example:
 
-> Ship the leftover demo gaps: README is stale, poster fallback is hardcoded, archit-branch is unpushed. Do not merge to main. Brief me when the others are done.
+> Walk the live Ticket Stack flow on production. Do not merge to main. Brief me when the others are done.
 
 Overseer assigns Builder → Verifier → Bugs → Ship, then writes a short briefing for you.
 
@@ -73,6 +73,7 @@ Hard stops for every bot:
 - Do not `git push` or merge to `main` unless Archit says so in that message
 - Do not spend money, book travel, or change Vercel env vars
 - Do not put secrets in source or chat
+- Never restore the old GUI. Keep Gavin's Ticket Stack UI. Mobile-first Tailwind.
 - Production URL is evidence, not a place to hot-patch
 
 ## Approvals to keep on

@@ -160,10 +160,10 @@ export interface RedisLike {
 }
 
 const k = {
-  trip: (code: string) => `elsewhere:trip:${code}`, // hash: field -> JSON
-  members: (code: string) => `elsewhere:members:${code}`, // hash: memberId -> JSON
-  votes: (code: string) => `elsewhere:votes:${code}`, // hash: memberId -> JSON vote (legacy: raw destination id)
-  auth: (code: string) => `elsewhere:auth:${code}`, // hash: tokenHash -> JSON memberId
+  trip: (code: string) => `tripflow:trip:${code}`, // hash: field -> JSON
+  members: (code: string) => `tripflow:members:${code}`, // hash: memberId -> JSON
+  votes: (code: string) => `tripflow:votes:${code}`, // hash: memberId -> JSON vote (legacy: raw destination id)
+  auth: (code: string) => `tripflow:auth:${code}`, // hash: tokenHash -> JSON memberId
 };
 
 /**

@@ -81,7 +81,7 @@ export const defaultTemplate = (theme: Theme = "pink"): InviteTemplate => ({
   palette: MOOD_PALETTES[theme],
   font: "fraunces",
   headline: ["spring", "break", "out."],
-  kicker: "ELSEWHERE TRAVEL CLUB",
+  kicker: "TRIPFLOW TRAVEL CLUB",
   footer: "DESTINATION: TOGETHER",
   sticker: "GOOD MEMORIES PENDING",
   motif: "✳",
@@ -145,7 +145,7 @@ export function fallbackTemplates(title: string, vibes: string[], hostName = "")
     .map((s) =>
       sanitizeTemplate({
         ...s, headline: head, motif,
-        kicker: hostName ? `${hostName}'s crew` : "Elsewhere travel club",
+        kicker: hostName ? `${hostName}'s crew` : "Tripflow travel club",
         footer: "Destination: together", sticker: "You're invited",
       })!,
     );

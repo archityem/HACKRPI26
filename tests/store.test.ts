@@ -69,7 +69,7 @@ const member = (id: string, code: string, o: Partial<Member> = {}): Member => ({
 });
 
 const stores: [string, () => Store][] = [
-  ["file store", () => makeFileStore(path.join(mkdtempSync(path.join(tmpdir(), "elsewhere-")), "db.json"))],
+  ["file store", () => makeFileStore(path.join(mkdtempSync(path.join(tmpdir(), "tripflow-")), "db.json"))],
   ["redis store (object hgetall)", () => makeRedisStore(new FakeRedis())],
   ["redis store (flat hgetall)", () => makeRedisStore(new FakeRedis(true))],
 ];
@@ -278,7 +278,7 @@ test("flat hgetall zips fields before parsing; non-JSON strings and decoded valu
 });
 
 test("file store writes the credential hash and not the token", async () => {
-  const file = path.join(mkdtempSync(path.join(tmpdir(), "elsewhere-")), "db.json");
+  const file = path.join(mkdtempSync(path.join(tmpdir(), "tripflow-")), "db.json");
   const s = makeFileStore(file);
   const token = newToken();
   await s.createTrip(trip("sec"), member("m", "sec"));

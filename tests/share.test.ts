@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildIcs } from "../lib/ics.ts";
 import { inviteMessage, itineraryText, nudgeMessage } from "../lib/messages.ts";
 
-const base = { uid: "abc@elsewhere", title: "Cartagena", location: "Cartagena, Colombia", start: "2027-03-08", end: "2027-03-12", description: "Five days", now: new Date("2026-11-07T12:00:00Z") };
+const base = { uid: "abc@tripflow", title: "Cartagena", location: "Cartagena, Colombia", start: "2027-03-08", end: "2027-03-12", description: "Five days", now: new Date("2026-11-07T12:00:00Z") };
 
 test("ics: all-day event whose end date is exclusive (the day after departure)", () => {
   const ics = buildIcs(base);
@@ -19,7 +19,7 @@ test("ics: valid envelope, CRLF endings, stable stamp and uid", () => {
   assert.ok(ics.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"));
   assert.ok(ics.endsWith("END:VEVENT\r\nEND:VCALENDAR\r\n"));
   assert.match(ics, /DTSTAMP:20261107T120000Z\r\n/);
-  assert.match(ics, /UID:abc@elsewhere\r\n/);
+  assert.match(ics, /UID:abc@tripflow\r\n/);
   assert.equal(ics.replace(/\r\n/g, "").includes("\n"), false);
 });
 test("ics: commas, semicolons, backslashes and newlines are escaped", () => {

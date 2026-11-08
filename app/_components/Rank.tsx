@@ -100,6 +100,10 @@ export function RankScreen(ctx: Ctx) {
   const month = m.start ? monthName(m.start) : "";
   const source: "AI" | "Est." = snap.ai.source === "gemini" ? "AI" : "Est.";
 
+  const avgOf = (d: (typeof eligible)[number], k: "flight" | "stay" | "daily") => {
+    const v = Object.values(d.perMember);
+    return v.length ? Math.round(v.reduce((n, c) => n + c[k], 0) / v.length) : 0;
+  };
   const items: RankItem[] = order.map((id) => {
     const d = eligible.find((x) => x.id === id)!;
     const mine = me ? d.perMember[me.id] : undefined;
@@ -111,6 +115,7 @@ export function RankScreen(ctx: Ctx) {
       : `Under everyone’s budget${d.stops === 0 ? ", nonstop flights" : ""}.${d.matched.length ? ` Matches ${andList(d.matched.map(prefShort)).toLowerCase()}.` : ""}`;
     return {
       id, name: d.name, per, total: d.groupTotal, verdict: verdictFor(avg || per, t.maxBudget), why, isNew: id === fresh,
+      flight: mine ? mine.flight : avgOf(d, "flight"), stay: mine ? mine.stay : avgOf(d, "stay"), daily: mine ? mine.daily : avgOf(d, "daily"), mine: !!mine,
       sub: d.proposedBy ? `${proposer ? proposer.name + "’s" : "A friend’s"} idea · ${snap.ai.source === "gemini" ? "AI priced" : "est. price"}` : undefined,
     };
   });

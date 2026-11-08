@@ -6,9 +6,14 @@ import path from "node:path";
 import { makeFileStore, makeRedisStore, type RedisLike, type Store } from "../lib/store.ts";
 import type { Member, Trip } from "../lib/types.ts";
 
-// In-memory stand-in for the Upstash client: hashes of strings, like the real thing with automaticDeserialization off.
+// In-memory stand-in for the Upstash client. `flat` matches @upstash/redis with
+// automaticDeserialization: false, which returns HGETALL as ["field", "value", ...] or [] if missing.
 class FakeRedis implements RedisLike {
   data = new Map<string, Map<string, string>>();
+  private readonly flat: boolean;
+  constructor(flat = false) {
+    this.flat = flat;
+  }
   async hset(key: string, d: Record<string, string>) {
     const h = this.data.get(key) ?? new Map<string, string>();
     for (const [f, v] of Object.entries(d)) {
@@ -20,7 +25,9 @@ class FakeRedis implements RedisLike {
   }
   async hgetall(key: string) {
     const h = this.data.get(key);
-    return h && h.size ? Object.fromEntries(h) : null;
+    if (!h || !h.size) return this.flat ? [] : null;
+    const record = Object.fromEntries(h);
+    return this.flat ? Object.entries(record).flat() : record;
   }
   async hdel(key: string, ...fields: string[]) {
     const h = this.data.get(key);
@@ -43,7 +50,8 @@ const member = (id: string, code: string, o: Partial<Member> = {}): Member => ({
 
 const stores: [string, () => Store][] = [
   ["file store", () => makeFileStore(path.join(mkdtempSync(path.join(tmpdir(), "elsewhere-")), "db.json"))],
-  ["redis store (fake client)", () => makeRedisStore(new FakeRedis())],
+  ["redis store (object hgetall)", () => makeRedisStore(new FakeRedis())],
+  ["redis store (flat hgetall)", () => makeRedisStore(new FakeRedis(true))],
 ];
 
 for (const [name, make] of stores) {
@@ -132,3 +140,52 @@ for (const [name, make] of stores) {
     });
   });
 }
+
+test("flat hgetall zips fields before parsing; non-JSON strings and decoded values pass through", async () => {
+  const host = member("host", "flat");
+  const redis: RedisLike = {
+    async hset() {
+      return 1;
+    },
+    async hdel() {
+      return 0;
+    },
+    async exists() {
+      return 0;
+    },
+    async hgetall(key: string) {
+      if (key.endsWith(":members:flat")) return [host.id, host]; // value already decoded, not JSON text
+      if (key.endsWith(":votes:flat")) return ["host", "miami"]; // raw destination id, not JSON
+      if (key.endsWith(":trip:missing")) return [];
+      // Field names ("title", "theme", ...) sit in the odd slots. Parsing those is the production crash.
+      return [
+        "code", JSON.stringify("flat"),
+        "hostMemberId", JSON.stringify("host"),
+        "title", JSON.stringify("2027"),
+        "note", "not-json",
+        "theme", JSON.stringify("pink"),
+        "windowStart", JSON.stringify("2027-03-01"),
+        "windowEnd", JSON.stringify("2027-03-31"),
+        "nights", JSON.stringify(5),
+        "maxBudget", JSON.stringify(1200),
+        "vibes", JSON.stringify(["beach"]),
+        "phase", JSON.stringify("collecting"),
+        "proposal", JSON.stringify(null),
+        "approvals", JSON.stringify([]),
+        "createdAt", JSON.stringify("2026-11-07"),
+      ];
+    },
+  };
+  const s = makeRedisStore(redis);
+  assert.equal(await s.getTrip("missing"), null);
+  const t = (await s.getTrip("flat"))!;
+  assert.equal(t.title, "2027");
+  assert.equal(typeof t.title, "string");
+  assert.equal(t.note, "not-json");
+  assert.equal(t.theme, "pink");
+  assert.equal(t.nights, 5);
+  assert.equal(t.proposal, null);
+  assert.deepEqual(t.approvals, []);
+  assert.deepEqual(await s.listMembers("flat"), [host]);
+  assert.deepEqual(await s.listVotes("flat"), [{ tripCode: "flat", memberId: "host", destinationId: "miami" }]);
+});

@@ -22,6 +22,7 @@ export default function NewTrip() {
   async function submit() {
     if (!f.hostName.trim()) return setError("Tell your friends who’s hosting.");
     if (!f.title.trim()) return setError("Give the trip a name.");
+    if (!Number.isInteger(f.nights) || f.nights < 1 || f.nights > 30) return setError("Choose between 1 and 30 nights.");
     if (!f.windowStart || !f.windowEnd || f.windowEnd < f.windowStart) return setError("Choose dates that end after they start.");
     if (dayDiff(f.windowStart, f.windowEnd) < f.nights) return setError(`Your dates need room for ${f.nights} nights.`);
     if (!(f.maxBudget > 0)) return setError("Set a budget above $0.");
@@ -63,6 +64,13 @@ export default function NewTrip() {
         <div className={row} role="group" aria-label="Trip length">
           {LENGTHS.map(([n, label]) => <Chip key={n} grow selected={f.nights === n} onClick={() => set({ nights: n })}>{label}</Chip>)}
         </div>
+        <Field label="Nights · type your own (1–30)">
+          <input
+            inputMode="numeric" pattern="[0-9]*" autoComplete="off" maxLength={2} placeholder="e.g. 10"
+            value={f.nights > 0 ? String(f.nights) : ""}
+            onChange={(e) => set({ nights: Number(e.target.value.replace(/\D/g, "").slice(0, 2)) })}
+          />
+        </Field>
         <Field label="A note to the crew (optional)"><textarea maxLength={250} value={f.note} placeholder="One beach. Good people." onChange={(e) => set({ note: e.target.value })} /></Field>
       </Card>
 

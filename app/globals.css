@@ -152,7 +152,7 @@ input[type="range"] { width: 100%; accent-color: var(--sage); margin: 4px 0; min
 
 /* ---------- ranking ---------- */
 .ranksort { position: relative; }
-.rankrow { border-radius: 20px; color: var(--ink); position: relative; overflow: hidden; }
+.rankrow { border-radius: 20px; color: var(--ink); position: relative; overflow: hidden; transition: border-radius 280ms var(--ease); }
 .rankrow[data-open] { border-radius: var(--r-xl); }
 .rankrow[data-overlay] { transform: translateY(-4px) scale(1.02); }
 .rankrow[data-new] { animation: pop 500ms var(--spring); }
@@ -164,7 +164,7 @@ input[type="range"] { width: 100%; accent-color: var(--sage); margin: 4px 0; min
 .rankrow__price { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
 .rankrow__price .t-meta { font-size: 11px; }
 .rankrow__handle { width: var(--tap); height: var(--tap); border: 0; background: transparent; color: inherit; display: inline-flex; align-items: center; justify-content: center; padding: 0; touch-action: none; cursor: grab; flex: none; }
-.rankrow__more { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 220ms var(--spring); }
+.rankrow__more { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms var(--ease); }
 .rankrow[data-open] > .rankrow__more { grid-template-rows: 1fr; }
 .rankrow__moreinner { min-height: 0; overflow: hidden; }
 .rankrow__body { padding: var(--s-xs) var(--s-md) var(--s-md); display: flex; flex-direction: column; gap: 10px; }

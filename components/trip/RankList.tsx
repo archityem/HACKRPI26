@@ -94,11 +94,12 @@ function SortableRow({ item, index, shared, open, onToggle, hidden }: { item: Ra
 /** The ranked list: every place is the same row; tap one to open its details. Drag by the handle (mouse, touch or keyboard). */
 export function RankList({ items, onReorder, shared }: { items: RankItem[]; onReorder: (ids: string[]) => void; shared: Shared }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
-  const [openIds, setOpenIds] = useState<Set<string>>(() => new Set(items[0] ? [items[0].id] : [])); // #1 starts open, once
+  const [openId, setOpenId] = useState<string | null>(() => items[0]?.id ?? null); // #1 starts open, once. Only one place is open at a time.
   const [activeId, setActiveId] = useState<string | null>(null);
-  const toggle = (id: string) => setOpenIds((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  // While dragging everything is collapsed so all slots are the same height; the open set is untouched and returns on drop.
-  const isOpen = (id: string) => activeId === null && openIds.has(id);
+  // Opening a place closes the one that was open; tapping the open one closes it. Both animate together.
+  const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id));
+  // While dragging everything is collapsed so all slots are the same height; the open place is untouched and returns on drop.
+  const isOpen = (id: string) => activeId === null && openId === id;
   const active = activeId ? items.findIndex((i) => i.id === activeId) : -1;
 
   function start(e: DragStartEvent) { setActiveId(String(e.active.id)); }

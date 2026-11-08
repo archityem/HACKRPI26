@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, loadSession, rememberTrip, saveSession, type Snapshot } from "@/lib/client";
 import { ButtonLink, Card, Meta, TabBar, Text, ToastProvider, useToast } from "@/components/ui";
+import { cn, cta, screen, screenTabsPad, skeleton, titleblock } from "@/components/ui/tw";
 import { AnswersScreen } from "./Answers";
 import { InviteScreen, LandingScreen } from "./Invite";
 import { PlanScreen } from "./Plan";
@@ -68,17 +69,17 @@ function Trip({ code }: { code: string }) {
 
   if (!snap || !view) {
     return (
-      <main className="screen">
+      <main className={screen}>
         {error ? (
           <>
-            <div className="titleblock" style={{ marginTop: 40 }}><Text as="h1" variant="display-lg">lost trip</Text><Meta>We couldn’t find that one</Meta></div>
-            <Card><span className="t-body-md">{error}. Check the invite link, or start a new trip.</span></Card>
-            <div className="cta"><ButtonLink kind="primary" href="/new">Start a trip</ButtonLink></div>
+            <div className={cn(titleblock, "mt-10")}><Text as="h1" variant="display-lg">lost trip</Text><Meta>We couldn’t find that one</Meta></div>
+            <Card><Text variant="body-md">{error}. Check the invite link, or start a new trip.</Text></Card>
+            <div className={cta}><ButtonLink kind="primary" href="/new">Start a trip</ButtonLink></div>
           </>
         ) : (
           <>
-            <div className="skeleton" style={{ height: 300, marginTop: 56, borderRadius: "var(--r-xl)" }} />
-            <Meta className="muted" aria-live="polite">opening your trip…</Meta>
+            <div className={cn(skeleton, "mt-14 h-[300px] rounded-xl")} />
+            <Meta className="text-muted" aria-live="polite">opening your trip…</Meta>
           </>
         )}
       </main>
@@ -110,7 +111,7 @@ function Trip({ code }: { code: string }) {
   }[shown];
 
   return (
-    <main className={`screen ${tabs ? "screen--tabs" : ""}`}>
+    <main className={cn(screen, tabs && screenTabsPad)} data-tabs={tabs ? "" : undefined}>
       <Screen key={shown} {...ctx} />
       {tabs && (
         <TabBar current={shown} tabs={[

@@ -4,6 +4,7 @@ import { api } from "@/lib/client";
 import { inviteMessage } from "@/lib/messages";
 import { AppPromo, AvatarRow, Stub, StubGrid, TRIP_TONES, TripTicket, tripTone } from "@/components/trip";
 import { Button, Card, Icon, IconButton, Meta, Sheet, Text, useToast } from "@/components/ui";
+import { cn, col, cta, iconSpacer, linkField, row, sheetHead, swatch, swatches, ticketTop, topbar, toneClass, type } from "@/components/ui/tw";
 import { prefShort, shareOrCopy, tripLink, useInstall, windowLabel, type Ctx } from "./common";
 
 const vibeLabel = (vibes: string[]) => (vibes.length ? vibes.map(prefShort).join(" + ").toUpperCase() : "ANYTHING");
@@ -15,8 +16,8 @@ const firstVibe = (ctx: Ctx) => ctx.snap.trip.vibes[0];
 function InstallSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Sheet open={open} onClose={onClose} label="Get the app">
-      <div className="sheet__head"><Text as="h2" variant="display-md">get the app</Text><p>Add this trip to your home screen. Your answers come with you, and there’s still no account.</p></div>
-      <Card tone="surface" className="">
+      <div className={sheetHead}><Text as="h2" variant="display-md">get the app</Text><p>Add this trip to your home screen. Your answers come with you, and there’s still no account.</p></div>
+      <Card tone="surface">
         <Meta>On iPhone</Meta><span>Tap Share, then “Add to Home Screen”.</span>
         <Meta>On Android</Meta><span>Open the browser menu, then “Install app”.</span>
       </Card>
@@ -50,25 +51,25 @@ export function InviteScreen(ctx: Ctx) {
 
   return (
     <>
-      <div className="topbar">
+      <div className={topbar}>
         <IconButton icon="back" label="Back" href="/" />
         <Meta>Your trip is live</Meta>
-        <span className="iconbtn--spacer" />
+        <span className={iconSpacer} />
       </div>
       <TripTicket tone={toneOf(ctx)} vibe={firstVibe(ctx)} pattern>
-        <div className="ticket__top t-meta"><span>{t.title}</span><span>Host · {me?.id === host?.id ? "You" : host?.name}</span></div>
+        <div className={cn(ticketTop, type.meta)}><span>{t.title}</span><span>Host · {me?.id === host?.id ? "You" : host?.name}</span></div>
         <Text variant="display-xxl">WHERE<br />TO?</Text>
         <Meta>The group decides</Meta>
         <Stub />
         <StubGrid items={[["Window", windowLabel(t.windowStart, t.windowEnd)], ["Length", `${t.nights} NIGHTS`], ["Budget cap", `$${t.maxBudget.toLocaleString("en-US")} / PP`], ["Vibe", vibeLabel(t.vibes)]]} />
       </TripTicket>
-      {t.note && <p className="muted" style={{ padding: "0 4px" }}>{t.note}</p>}
+      {t.note && <p className="px-1 text-muted">{t.note}</p>}
 
       <Card>
-        <div className="row row--between"><Meta>Make it yours</Meta><Meta className="muted">Ticket color</Meta></div>
-        <div className="swatches" role="group" aria-label="Ticket color">
+        <div className={cn(row, "justify-between")}><Meta>Make it yours</Meta><Meta className="text-muted">Ticket color</Meta></div>
+        <div className={swatches} role="group" aria-label="Ticket color">
           {TRIP_TONES.map((c) => (
-            <button key={c} type="button" className="swatch" data-tone={c} aria-label={c} aria-pressed={toneOf(ctx) === c} onClick={() => pickTone(c)}>
+            <button key={c} type="button" className={cn(swatch, toneClass[c])} data-tone={c} aria-label={c} aria-pressed={toneOf(ctx) === c} onClick={() => pickTone(c)}>
               {toneOf(ctx) === c && <Icon name="check" size={18} stroke={3} />}
             </button>
           ))}
@@ -76,31 +77,31 @@ export function InviteScreen(ctx: Ctx) {
       </Card>
 
       <Card>
-        <div className="row row--between"><Meta>Who’s in</Meta><Meta className="muted">{joined} so far</Meta></div>
+        <div className={cn(row, "justify-between")}><Meta>Who’s in</Meta><Meta className="text-muted">{joined} so far</Meta></div>
         <AvatarRow gap names={snap.members.map((m) => ({ id: m.id, name: m.name }))} meId={me?.id} seats={Math.max(0, 6 - joined)} />
-        <span className="t-body-md muted">
+        <Text variant="body-md" className="text-muted">
           {others.length === 0 ? "Nobody yet. Send it to the gc. No app or account needed to join." : `${snap.match.readyCount} of ${joined} answered. Nobody waits on anybody.`}
-        </span>
+        </Text>
       </Card>
 
       {me && !me.ready && (
         <Card>
-          <div className="row row--between">
-            <span className="col" style={{ gap: 2 }}><Meta>Your answers</Meta><span className="t-label">Add yours · 30 sec</span></span>
+          <div className={cn(row, "justify-between")}>
+            <span className={cn(col, "gap-0.5")}><Meta>Your answers</Meta><Text variant="label">Add yours · 30 sec</Text></span>
             <Button kind="soft" onClick={() => ctx.go("answers")}>Answer</Button>
           </div>
         </Card>
       )}
 
-      <Card className="" tight>
-        <div className="row" style={{ gap: 8 }}>
-          <Meta className="muted">Link</Meta>
-          <input readOnly value={shown} aria-label="Invite link" onFocus={(e) => e.currentTarget.select()} style={{ flex: 1, minWidth: 0, border: 0, background: "transparent", font: "400 14px var(--font-mono)", color: "var(--ink)", padding: 0 }} />
+      <Card tight>
+        <div className={row}>
+          <Meta className="text-muted">Link</Meta>
+          <input readOnly value={shown} aria-label="Invite link" className={linkField} onFocus={(e) => e.currentTarget.select()} />
           <Button kind="soft" icon="copy" onClick={copy}>Copy</Button>
         </div>
       </Card>
 
-      <div className="cta">
+      <div className={cta}>
         <Button kind="primary" icon="send" onClick={send}>Send to the gc</Button>
       </div>
     </>
@@ -119,27 +120,27 @@ export function LandingScreen(ctx: Ctx) {
 
   return (
     <>
-      <div className="topbar">
+      <div className={topbar}>
         <Meta>{hello}</Meta>
-        <Meta className="muted">/t/{ctx.code}</Meta>
+        <Meta className="text-muted">/t/{ctx.code}</Meta>
       </div>
       <TripTicket tone={toneOf(ctx)} vibe={firstVibe(ctx)} pattern>
-        <div className="ticket__top t-meta"><span>{t.title}</span><span>Host · {host?.name ?? "?"}</span></div>
+        <div className={cn(ticketTop, type.meta)}><span>{t.title}</span><span>Host · {host?.name ?? "?"}</span></div>
         <Text variant="display-xxl">WHERE<br />TO?</Text>
         <Meta>The group decides{me?.ready ? "" : " · you’re part of it"}</Meta>
         <Stub />
         <StubGrid items={[["Window", windowLabel(t.windowStart, t.windowEnd)], ["Budget cap", `$${t.maxBudget.toLocaleString("en-US")} / PP`]]} />
-        <div className="row" style={{ gap: 10, marginTop: 2 }}>
+        <div className={cn(row, "mt-0.5 gap-2.5")}>
           {answered.length > 0 && <AvatarRow names={answered.slice(0, 5).map((m) => ({ id: m.id, name: m.name }))} meId={me?.id} ring={ring} />}
           <Meta>{answered.length === 0 ? "Be the first to answer" : `${answered.length} ${answered.length === 1 ? "friend" : "friends"} already answered`}</Meta>
         </div>
       </TripTicket>
-      {t.note && <p className="muted" style={{ padding: "0 4px" }}>{t.note}</p>}
+      {t.note && <p className="px-1 text-muted">{t.note}</p>}
       <AppPromo onGet={install} />
       <InstallSheet open={help} onClose={closeHelp} />
 
-      <div className="cta">
-        <Meta className="muted center">No account · no password · just your first name</Meta>
+      <div className={cta}>
+        <Meta className="text-center text-muted">No account · no password · just your first name</Meta>
         {me?.ready
           ? <Button kind="primary" onClick={() => ctx.go("vibe")}>See the trip<Icon name="arrow" /></Button>
           : <Button kind="primary" onClick={() => ctx.go("answers")}>Answer here · 30 sec<Icon name="arrow" /></Button>}

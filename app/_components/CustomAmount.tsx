@@ -10,7 +10,7 @@ export function CustomAmount({ id, value, onChange }: { id: string; value: numbe
   return (
     <Field label="Custom amount">
       <input
-        id={id} className="amount-input" inputMode="numeric" pattern="[0-9]*" autoComplete="off"
+        id={id} className="min-h-11" inputMode="numeric" pattern="[0-9]*" autoComplete="off"
         placeholder="Any whole-dollar amount" value={shown}
         onChange={(e) => {
           const digits = e.target.value.replace(/\D/g, "").slice(0, 9).replace(/^0+(?=\d)/, "");

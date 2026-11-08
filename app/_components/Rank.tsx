@@ -5,6 +5,7 @@ import { groupOrder, orderOf, verdictFor } from "@/lib/rank";
 import { EstimateCard, type Estimate } from "@/components/trip";
 import { RankList, type RankItem } from "@/components/trip/RankList";
 import { Button, Icon, IconButton, LinkButton, Meta, Sheet, Text, useToast } from "@/components/ui";
+import { addRow, center, cn, col, cta, err, field, fieldGrow, fieldRow, sheetHead, skeleton, titleblock, topbar, type, why } from "@/components/ui/tw";
 import { andList, monthName, prefShort, windowShort, type Ctx } from "./common";
 
 // ---------------------------------------------------------------- 07 · Propose your own
@@ -38,22 +39,22 @@ function ProposeSheet({ ctx, open, onClose }: { ctx: Ctx; open: boolean; onClose
 
   return (
     <Sheet open={open} onClose={onClose} label="Suggest your own place">
-      <div className="sheet__head">
+      <div className={sheetHead}>
         <Text as="h2" variant="display-md">got a better idea?</Text>
         <p>Name a place. {ctx.snap.ai.enabled ? "AI prices it for the group." : "We’ll estimate it for the group."}</p>
       </div>
-      <form className="field field--row" onSubmit={(ev) => { ev.preventDefault(); void price(); }}>
-        <span className="grow">
+      <form className={cn(field, fieldRow)} onSubmit={(ev) => { ev.preventDefault(); void price(); }}>
+        <span className={fieldGrow}>
           <Meta>Where to?</Meta>
           <input value={name} maxLength={60} autoFocus placeholder="Chicago" aria-label="Where to?" onChange={(ev) => { setName(ev.target.value); setError(""); }} />
         </span>
         <Button kind="ink" disabled={busy || name.trim().length < 2} onClick={price}>{busy ? "Pricing…" : "Price it"}</Button>
       </form>
-      <div className="err" role="alert">{error}</div>
+      <div className={err} role="alert">{error}</div>
       {busy && (
         <div aria-live="polite">
-          <div className="skeleton" style={{ height: 210 }} />
-          <Meta className="muted">pricing {name.trim().toLowerCase()}…</Meta>
+          <div className={cn(skeleton, "h-[210px] rounded-[20px]")} />
+          <Meta className="text-muted">pricing {name.trim().toLowerCase()}…</Meta>
         </div>
       )}
       {e && res && <EstimateCard e={e} source={res.source} dates={windowShort(e.start, new Date(new Date(e.start + "T12:00:00Z").getTime() + e.nights * 86_400_000).toISOString().slice(0, 10))} month={monthName(e.start)} />}
@@ -138,71 +139,71 @@ export function RankScreen(ctx: Ctx) {
   if (!me?.ready) {
     body = (
       <>
-        <div className="why" style={{ background: "var(--surface)", borderRadius: "var(--r-lg)", padding: 16 }}><Meta>Answer first</Meta><span>Ideas are priced from everyone’s airports and budgets. Add yours to start ranking.</span></div>
-        <div className="cta"><Button kind="primary" onClick={() => ctx.go("answers")}>Add my answers<Icon name="arrow" /></Button></div>
+        <div className={cn(why, "rounded-lg p-4")}><Meta>Answer first</Meta><span>Ideas are priced from everyone’s airports and budgets. Add yours to start ranking.</span></div>
+        <div className={cta}><Button kind="primary" onClick={() => ctx.go("answers")}>Add my answers<Icon name="arrow" /></Button></div>
       </>
     );
   } else if (snap.ai.source === "pending" && m.overlap) {
     body = (
       <>
-        <div className="skeleton" style={{ height: 250 }} />
-        {[0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 52 }} />)}
-        <Meta className="muted" aria-live="polite">pricing destinations for your group…</Meta>
+        <div className={cn(skeleton, "h-[250px] rounded-[20px]")} />
+        {[0, 1, 2].map((i) => <div key={i} className={cn(skeleton, "h-[52px] rounded-[20px]")} />)}
+        <Meta className="text-muted" aria-live="polite">pricing destinations for your group…</Meta>
       </>
     );
   } else if (snap.ai.source === "fallback" && m.overlap && !eligible.length) {
     body = (
       <>
-        <div className="why" style={{ background: "var(--surface)", borderRadius: "var(--r-lg)", padding: 16 }}>
+        <div className={cn(why, "rounded-lg p-4")}>
           <Meta>Ideas aren’t available right now</Meta>
           <span>The AI service that suggests places is overloaded, so we couldn’t build your list. Your answers are saved. Try again in a minute.</span>
         </div>
-        <div className="cta"><Button kind="primary" onClick={retry}>Try again</Button></div>
+        <div className={cta}><Button kind="primary" onClick={retry}>Try again</Button></div>
       </>
     );
   } else if (!m.overlap || !eligible.length) {
     body = (
       <>
-        <div className="why" style={{ background: "var(--surface)", borderRadius: "var(--r-lg)", padding: 16 }}>
+        <div className={cn(why, "rounded-lg p-4")}>
           <Meta>{!m.overlap ? "No shared dates yet" : "Nothing fits yet"}</Meta>
           <span>{!m.overlap ? `There isn’t a shared ${t.nights}-night window yet. Check the vibe check, or edit your dates.` : "No place meets every budget and hard no. Check why below, or loosen something."}</span>
         </div>
         {m.excluded.length > 0 && (
-          <details className="why" style={{ background: "var(--surface)", borderRadius: "var(--r-lg)", padding: 16 }}>
-            <summary className="t-label">Why {m.excluded.length} places didn’t make it</summary>
-            <ul style={{ margin: "8px 0 0", paddingLeft: 18, display: "grid", gap: 6 }}>{m.excluded.map((d) => <li key={d.id}><strong>{d.name}:</strong> {d.reasons.join("; ")}.</li>)}</ul>
+          <details className={cn(why, "rounded-lg p-4")}>
+            <summary className={type.label}>Why {m.excluded.length} places didn’t make it</summary>
+            <ul className="mt-2 grid list-disc gap-1.5 pl-[18px]">{m.excluded.map((d) => <li key={d.id}><strong>{d.name}:</strong> {d.reasons.join("; ")}.</li>)}</ul>
           </details>
         )}
-        <button type="button" className="addrow" onClick={() => setPropose(true)}><Icon name="plus" size={18} stroke={2.6} />Suggest your own place</button>
-        <div className="cta"><Button kind="primary" onClick={() => ctx.go(m.overlap ? "answers" : "vibe")}>{m.overlap ? "Edit my answers" : "Open the vibe check"}</Button></div>
+        <button type="button" className={addRow} onClick={() => setPropose(true)}><Icon name="plus" size={18} stroke={2.6} />Suggest your own place</button>
+        <div className={cta}><Button kind="primary" onClick={() => ctx.go(m.overlap ? "answers" : "vibe")}>{m.overlap ? "Edit my answers" : "Open the vibe check"}</Button></div>
       </>
     );
   } else {
     body = (
       <>
         {snap.ai.source === "fallback" && (
-          <div className="why" style={{ background: "var(--apricot)", borderRadius: "var(--r-lg)", padding: "12px 16px", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }} role="status">
-            <span className="col" style={{ gap: 2 }}><span className="t-meta">AI ideas unavailable</span><span>These are sample places that may not suit your group.</span></span>
+          <div className={cn(why, "flex-row items-center justify-between gap-3 rounded-lg bg-apricot px-4 py-3")} role="status">
+            <span className={cn(col, "gap-0.5")}><Meta>AI ideas unavailable</Meta><span>These are sample places that may not suit your group.</span></span>
             <Button kind="ink" onClick={retry}>Try again</Button>
           </div>
         )}
         <RankList items={items} onReorder={reorder} shared={{ month, source, travelers: m.readyCount, meta: `${m.start && m.tripEnd ? windowShort(m.start, m.tripEnd) : ""} · ${t.nights} nights · ${(t.vibes.length ? t.vibes : eligible.find((d) => d.id === order[0])?.matched.slice(0, 2) ?? []).map(prefShort).join(" + ") || "Anything goes"}` }} />
-        <button type="button" className="addrow" onClick={() => setPropose(true)}><Icon name="plus" size={18} stroke={2.6} />Suggest your own place</button>
+        <button type="button" className={addRow} onClick={() => setPropose(true)}><Icon name="plus" size={18} stroke={2.6} />Suggest your own place</button>
         {m.excluded.length > 0 && (
-          <details className="muted" style={{ padding: "0 4px" }}>
-            <summary className="t-meta" style={{ cursor: "pointer", minHeight: 32 }}>Why {m.excluded.length} other {m.excluded.length === 1 ? "place" : "places"} didn’t make it</summary>
-            <ul style={{ margin: "6px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>{m.excluded.map((d) => <li key={d.id}><strong>{d.name}:</strong> {d.reasons.join("; ")}.</li>)}</ul>
+          <details className="px-1 text-muted">
+            <summary className={cn(type.meta, "min-h-8 cursor-pointer")}>Why {m.excluded.length} other {m.excluded.length === 1 ? "place" : "places"} didn’t make it</summary>
+            <ul className="mt-1.5 grid list-disc gap-1 pl-[18px]">{m.excluded.map((d) => <li key={d.id}><strong>{d.name}:</strong> {d.reasons.join("; ")}.</li>)}</ul>
           </details>
         )}
         {/* These two live in the page flow, not the pinned bar, so they never cover the list. */}
         {(proposal || (isHost && lockedCount > 0)) && (
-          <div className="col center">
+          <div className={cn(col, center)}>
             {proposal && <LinkButton onClick={unlock}>Change my ranking</LinkButton>}
             {isHost && !proposal && lockedCount > 0 && <LinkButton onClick={pickNow}>Close ranking and pick #1</LinkButton>}
           </div>
         )}
-        <div className="cta">
-          <Meta className="muted center">
+        <div className={cta}>
+          <Meta className="text-center text-muted">
             {proposal ? "Everyone locked in" : `${lockedCount} of ${readyIds.length} locked in${haveVotes && leader ? ` · group #1: ${leader.name}` : ""}`}
           </Meta>
           {proposal ? (
@@ -222,12 +223,12 @@ export function RankScreen(ctx: Ctx) {
 
   return (
     <>
-      <div className="topbar">
+      <div className={topbar}>
         <IconButton icon="back" label="Back to the vibe check" onClick={() => ctx.go("vibe")} />
         <Meta>Trip ideas · {eligible.length}</Meta>
         <IconButton icon="refresh" label="Refresh ideas" onClick={() => { ctx.refresh(); toast("Checking for new ideas…"); }} />
       </div>
-      <div className="titleblock">
+      <div className={titleblock}>
         <Text as="h1" variant="display-lg">rank ’em</Text>
         <Meta>{leader ? `Tap to open · group #1 so far: ${leader.name}` : "Tap to open · drag the handle to reorder"}</Meta>
       </div>

@@ -1,9 +1,10 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { makeFileStore, makeRedisStore, type RedisLike, type Store } from "../lib/store.ts";
+import { applyApproval, makeFileStore, makeRedisStore, type RedisLike, type Store } from "../lib/store.ts";
+import { hashToken, newToken } from "../lib/credential.ts";
 import type { Member, Trip } from "../lib/types.ts";
 
 // In-memory stand-in for the Upstash client. `flat` matches @upstash/redis with
@@ -11,6 +12,7 @@ import type { Member, Trip } from "../lib/types.ts";
 class FakeRedis implements RedisLike {
   data = new Map<string, Map<string, string>>();
   private readonly flat: boolean;
+  private queue: Promise<unknown> = Promise.resolve();
   constructor(flat = false) {
     this.flat = flat;
   }
@@ -37,6 +39,24 @@ class FakeRedis implements RedisLike {
   }
   async exists(...keys: string[]) {
     return keys.filter((k) => this.data.has(k)).length;
+  }
+  // Stands in for the Redis EVAL: one queued critical section, same decision as applyApproval.
+  async eval(script: string, keys: string[], args: string[]) {
+    const run = this.queue.then(() => {
+      if (!script.includes("HSET") || !script.includes("approvals") || !script.includes("proposal")) {
+        throw new Error("approval script is not the atomic update");
+      }
+      const h = this.data.get(keys[0]);
+      if (!h || !h.size) return "missing";
+      const trip = Object.fromEntries([...h.entries()].map(([f, v]) => [f, JSON.parse(v)])) as Trip;
+      const result = applyApproval(trip, JSON.parse(args[1]) as string, JSON.parse(args[0]) as string, JSON.parse(args[2]) as string[]);
+      if (!result.applied) return "stale";
+      h.set("approvals", JSON.stringify(result.approvals));
+      h.set("phase", JSON.stringify(result.phase));
+      return "ok";
+    });
+    this.queue = run.then(() => undefined, () => undefined);
+    return run;
   }
 }
 
@@ -131,6 +151,62 @@ for (const [name, make] of stores) {
       assert.equal((await s.listVotes("g2")).length, 1);
       await s.deleteVote("g1", "ghost"); // deleting a missing vote is harmless
     });
+    test("votes keep ranking and locked, including an explicit false", async () => {
+      const s = make();
+      await s.createTrip(trip("g3"), member("h", "g3"));
+      await s.setVote({ tripCode: "g3", memberId: "a", destinationId: "miami", ranking: ["miami", "cancun"], locked: true });
+      await s.setVote({ tripCode: "g3", memberId: "b", destinationId: "lisbon", ranking: ["lisbon"], locked: false });
+      const votes = (await s.listVotes("g3")).sort((x, y) => x.memberId.localeCompare(y.memberId));
+      assert.deepEqual(votes, [
+        { tripCode: "g3", memberId: "a", destinationId: "miami", ranking: ["miami", "cancun"], locked: true },
+        { tripCode: "g3", memberId: "b", destinationId: "lisbon", ranking: ["lisbon"], locked: false },
+      ]);
+    });
+    test("credentials store a hash and resolve only that member", async () => {
+      const s = make();
+      const token = newToken();
+      await s.createTrip(trip("sec"), member("m", "sec", { ready: true, max: 400 }));
+      await s.upsertMember(member("other", "sec"));
+      await s.putCredential("sec", "m", hashToken(token));
+      assert.equal((await s.memberByToken("sec", hashToken(token)))?.id, "m");
+      assert.equal(await s.memberByToken("sec", hashToken(newToken())), null);
+      assert.equal(await s.memberByToken("sec", token), null);
+      const replaced = newToken();
+      await s.putCredential("sec", "m", hashToken(replaced));
+      assert.equal(await s.memberByToken("sec", hashToken(token)), null);
+      assert.equal((await s.memberByToken("sec", hashToken(replaced)))?.max, 400);
+    });
+    test("concurrent approvals all stick and open planning once, and a stale proposal does not write", async () => {
+      const s = make();
+      const ids = ["a", "b", "c", "d"];
+      await s.createTrip(trip("race", { proposal: "miami", phase: "ideas" }), member("host", "race"));
+      await Promise.all(ids.map((id) => s.upsertMember(member(id, "race", { ready: true }))));
+      await Promise.all(ids.map((id) => s.approve("race", id, "miami", ids)));
+      const t = (await s.getTrip("race"))!;
+      assert.deepEqual([...t.approvals].sort(), [...ids].sort());
+      assert.equal(t.phase, "planning");
+      assert.equal(t.proposal, "miami");
+      const again = await s.approve("race", "a", "miami", ids);
+      assert.equal(again.applied, true);
+      assert.equal((await s.getTrip("race"))!.approvals.filter((id) => id === "a").length, 1);
+      const stale = await s.approve("race", "a", "cancun", ids);
+      assert.equal(stale.applied, false);
+      assert.equal(stale.trip!.proposal, "miami");
+      assert.equal(stale.trip!.phase, "planning");
+      await s.updateTrip("race", { proposal: "cancun", approvals: ["z"], phase: "ideas" });
+      const missed = await s.approve("race", "a", "miami", ids);
+      assert.equal(missed.applied, false);
+      assert.deepEqual((await s.getTrip("race"))!.approvals, ["z"]);
+      assert.equal((await s.getTrip("race"))!.phase, "ideas");
+    });
+    test("one approval of two stays in ideas", async () => {
+      const s = make();
+      await s.createTrip(trip("part", { proposal: "miami", phase: "ideas" }), member("host", "part"));
+      const result = await s.approve("part", "a", "miami", ["a", "b"]);
+      assert.equal(result.applied, true);
+      assert.deepEqual(result.trip!.approvals, ["a"]);
+      assert.equal(result.trip!.phase, "ideas");
+    });
     test("concurrent updates to different fields don't lose either", async () => {
       const s = make();
       await s.createTrip(trip("hhh"), member("h-hhh", "hhh"));
@@ -153,9 +229,17 @@ test("flat hgetall zips fields before parsing; non-JSON strings and decoded valu
     async exists() {
       return 0;
     },
+    async eval() {
+      throw new Error("not used");
+    },
     async hgetall(key: string) {
       if (key.endsWith(":members:flat")) return [host.id, host]; // value already decoded, not JSON text
-      if (key.endsWith(":votes:flat")) return ["host", "miami"]; // raw destination id, not JSON
+      if (key.endsWith(":votes:flat")) {
+        return [
+          "host", "miami", // raw destination id, not JSON
+          "friend", JSON.stringify({ destinationId: "lisbon", ranking: ["lisbon", "miami"], locked: false }),
+        ];
+      }
       if (key.endsWith(":trip:missing")) return [];
       // Field names ("title", "theme", ...) sit in the odd slots. Parsing those is the production crash.
       return [
@@ -187,5 +271,19 @@ test("flat hgetall zips fields before parsing; non-JSON strings and decoded valu
   assert.equal(t.proposal, null);
   assert.deepEqual(t.approvals, []);
   assert.deepEqual(await s.listMembers("flat"), [host]);
-  assert.deepEqual(await s.listVotes("flat"), [{ tripCode: "flat", memberId: "host", destinationId: "miami" }]);
+  assert.deepEqual((await s.listVotes("flat")).sort((a, b) => a.memberId.localeCompare(b.memberId)), [
+    { tripCode: "flat", memberId: "friend", destinationId: "lisbon", ranking: ["lisbon", "miami"], locked: false },
+    { tripCode: "flat", memberId: "host", destinationId: "miami" },
+  ]);
+});
+
+test("file store writes the credential hash and not the token", async () => {
+  const file = path.join(mkdtempSync(path.join(tmpdir(), "elsewhere-")), "db.json");
+  const s = makeFileStore(file);
+  const token = newToken();
+  await s.createTrip(trip("sec"), member("m", "sec"));
+  await s.putCredential("sec", "m", hashToken(token));
+  const text = readFileSync(file, "utf8");
+  assert.equal(text.includes(token), false);
+  assert.equal(text.includes(hashToken(token)), true);
 });

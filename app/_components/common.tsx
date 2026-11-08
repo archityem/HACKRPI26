@@ -14,7 +14,7 @@ export interface Ctx {
   run: (fn: () => Promise<Snapshot>, okMsg?: string) => Promise<boolean>;
   apply: (s: Snapshot) => void;
   refresh: () => void;
-  onJoined: (id: string, snap: Snapshot) => void;
+  onJoined: (id: string, snap: Snapshot, token?: string) => void;
 }
 
 // ---------- labels ----------

@@ -6,7 +6,10 @@ import { FIXTURE_DESTINATIONS } from "./destinations";
 import { jobFresh } from "./jobs";
 import { compute } from "./matching";
 import { getStore } from "./store";
+import { invalidatesAgreement, sameConstraints } from "./answers";
 import type { Destination, JobState, Member, Trip } from "./types";
+
+export { invalidatesAgreement, sameConstraints };
 
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"; // no look-alikes
 export const newCode = () =>
@@ -148,7 +151,26 @@ async function pruneToDestinations(code: string, destinations: Destination[]) {
   if (trip?.proposal && !ids.has(trip.proposal)) await resetAgreement(trip);
 }
 
-/** Everything the client needs for a trip, with other members' budgets redacted. */
+/** Drop rankings that no longer fit. `unlock` is for a real constraint change; an unchanged resave keeps locks. */
+export async function pruneVotes(code: string, eligible: Set<string>, unlock: boolean) {
+  const store = await getStore();
+  for (const v of await store.listVotes(code)) {
+    const all = v.ranking ?? [v.destinationId];
+    const order = all.filter((id) => eligible.has(id));
+    if (!order.length) {
+      await store.deleteVote(code, v.memberId);
+      continue;
+    }
+    const same = order.length === all.length && order.every((id, i) => id === all[i]);
+    if (same && !(unlock && v.locked)) continue;
+    await store.setVote({ ...v, destinationId: order[0], ranking: order, locked: unlock ? false : v.locked });
+  }
+}
+
+/**
+ * Everything the client needs for a trip, with other members' budgets redacted.
+ * `me` is a member id already proven by their private credential. A public id is not proof.
+ */
 export async function snapshot(code: string, me?: string | null) {
   const store = await getStore();
   const trip = await store.getTrip(code);

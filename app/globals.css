@@ -166,6 +166,10 @@ input[type="range"] { width: 100%; accent-color: var(--sage); margin: 4px 0; min
 .rankitem[data-open] > .rankitem__row { grid-template-rows: 0fr; }
 .rankitem[data-open] > .rankitem__ticket { grid-template-rows: 1fr; }
 .rankitem__inner { min-height: 0; overflow: hidden; }
+/* During a reorder everything snaps closed with no animation, so slots are measured at their real size. */
+.rank-list[data-reordering] .rankitem__row, .rank-list[data-reordering] .rankitem__ticket { transition: none; }
+.rankitem[data-placeholder] { opacity: 0.35; }
+.rankoverlay { transform: translateY(-4px) scale(1.02); }
 .rankticket { position: relative; }
 .rankticket[data-dragging] { transform: translateY(-4px) scale(1.02); }
 .rankticket__spacer { width: var(--tap); height: var(--tap); flex: none; }

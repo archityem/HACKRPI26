@@ -1,8 +1,8 @@
 "use client";
-import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import { DndContext, DragOverlay, KeyboardSensor, MeasuringStrategy, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon, Meta, Text } from "../ui";
 import { AIVerdictPill, Stub, TripTicket, placeTone, verdictText } from "./index";
 import type { Verdict } from "@/lib/rank";
@@ -74,50 +74,82 @@ function CompactRow({ item, index, shared, dragging, onToggle, handle }: { item:
   );
 }
 
-function SortableRow({ item, index, shared, expanded, onToggle }: { item: RankItem; index: number; shared: Shared; expanded: boolean; onToggle: () => void }) {
+function SortableRow({ item, index, shared, expanded, ticketOwnsHandle, reordering, onToggle }: {
+  item: RankItem; index: number; shared: Shared; expanded: boolean; ticketOwnsHandle: boolean; reordering: boolean; onToggle: () => void;
+}) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   // Translate only: dnd-kit's scale would stretch an item that moves into a slot of a different height.
-  const style = { transform: CSS.Translate.toString(transform), transition, zIndex: isDragging ? 3 : undefined, position: "relative" as const };
+  const style = { transform: CSS.Translate.toString(transform), transition, position: "relative" as const };
   const live: HandleProps = { name: item.name, attrs: attributes, listeners, setRef: setActivatorNodeRef };
-  const idle: HandleProps = { name: item.name, attrs: {}, listeners: undefined, setRef: () => {} }; // only the visible look owns the drag handle
+  const idle: HandleProps = { name: item.name, attrs: {}, listeners: undefined, setRef: () => {} }; // only one look owns the drag handle
   // Both looks stay mounted: the compact row shrinks while the ticket unfolds (and back), so opening and closing animate.
-  // The hidden one is `inert`, so it can't be tabbed to or clicked.
+  // The hidden one is `inert` so it can't be tabbed to or clicked, except during a reorder: the handle a drag started
+  // on must stay alive until the drag ends, even though its card has just closed.
   return (
-    <div ref={setNodeRef} style={style} className="rankitem" data-open={expanded ? "" : undefined}>
-      <div className="rankitem__row" inert={expanded}>
-        <div className="rankitem__inner"><CompactRow item={item} index={index} shared={shared} dragging={isDragging} onToggle={onToggle} handle={expanded ? idle : live} /></div>
+    <div ref={setNodeRef} style={style} className="rankitem" data-open={expanded ? "" : undefined} data-placeholder={isDragging ? "" : undefined}>
+      <div className="rankitem__row" inert={!reordering && expanded}>
+        <div className="rankitem__inner"><CompactRow item={item} index={index} shared={shared} dragging={false} onToggle={onToggle} handle={ticketOwnsHandle ? idle : live} /></div>
       </div>
-      <div className="rankitem__ticket" inert={!expanded}>
-        <div className="rankitem__inner"><RankTicket item={item} index={index} shared={shared} dragging={isDragging} onToggle={onToggle} handle={expanded ? live : idle} /></div>
+      <div className="rankitem__ticket" inert={!reordering && !expanded}>
+        <div className="rankitem__inner"><RankTicket item={item} index={index} shared={shared} dragging={false} onToggle={onToggle} handle={ticketOwnsHandle ? live : idle} /></div>
       </div>
     </div>
   );
 }
 
-/** One place is open at a time (#1 to start). Opening one closes the other. Drag the handle — not the card — to reorder. */
+/**
+ * One place is open at a time (#1 to start). Opening one closes the other. Drag the handle (not the card) to reorder.
+ *
+ * Dragging is kept apart from the open/close animation: pressing a handle closes every card at once with no animation
+ * (so dnd-kit measures the real, collapsed slots), the dragged card is shown as a same-size compact row in a
+ * DragOverlay, and the open card comes back when the gesture ends.
+ */
 export function RankList({ items, onReorder, shared }: { items: RankItem[]; onReorder: (ids: string[]) => void; shared: Shared }) {
   const [openId, setOpenId] = useState<string | null>(() => items[0]?.id ?? null);
+  const [reordering, setReordering] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const ids = items.map((item) => item.id);
   if (openId && !ids.includes(openId)) setOpenId(null);
-  // While dragging, everything is closed so every slot is the same height; the open place comes back on drop.
-  const isOpen = (id: string) => activeId === null && openId === id;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
-  function toggle(id: string) {
-    setOpenId((current) => (current === id ? null : id));
-  }
-  function start(e: DragStartEvent) { setActiveId(String(e.active.id)); }
+  const active = activeId ? items.findIndex((i) => i.id === activeId) : -1;
+
+  // A press on a handle may become a drag or just a tap: either way, it ends with the pointer going up.
+  useEffect(() => {
+    if (!reordering) return;
+    const done = () => { setReordering(false); setActiveId(null); };
+    window.addEventListener("pointerup", done);
+    window.addEventListener("pointercancel", done);
+    return () => { window.removeEventListener("pointerup", done); window.removeEventListener("pointercancel", done); };
+  }, [reordering]);
+
+  const toggle = (id: string) => setOpenId((current) => (current === id ? null : id));
+  function start(e: DragStartEvent) { setReordering(true); setActiveId(String(e.active.id)); } // also covers keyboard drags
+  function finish() { setReordering(false); setActiveId(null); }
   function end(e: DragEndEvent) {
-    setActiveId(null);
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    onReorder(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
+    finish();
+    const { active: a, over } = e;
+    if (!over || a.id === over.id) return;
+    onReorder(arrayMove(ids, ids.indexOf(String(a.id)), ids.indexOf(String(over.id))));
   }
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={start} onDragEnd={end} onDragCancel={() => setActiveId(null)}>
+    <DndContext
+      sensors={sensors} collisionDetection={closestCenter} measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+      onDragStart={start} onDragEnd={end} onDragCancel={finish}
+    >
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-        <div className="col">{items.map((it, i) => <SortableRow key={it.id} item={it} index={i} shared={shared} expanded={isOpen(it.id)} onToggle={() => toggle(it.id)} />)}</div>
+        <div className="col rank-list" data-reordering={reordering ? "" : undefined} onPointerDownCapture={(e) => { if ((e.target as HTMLElement).closest(".rankrow__handle")) setReordering(true); }}>
+          {items.map((it, i) => (
+            <SortableRow key={it.id} item={it} index={i} shared={shared} expanded={!reordering && openId === it.id} ticketOwnsHandle={openId === it.id} reordering={reordering} onToggle={() => toggle(it.id)} />
+          ))}
+        </div>
       </SortableContext>
+      <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }}>
+        {active >= 0 ? (
+          <div className="rankoverlay" aria-hidden="true">
+            <CompactRow item={items[active]} index={active} shared={shared} dragging={false} onToggle={() => {}} handle={{ name: items[active].name, attrs: {}, listeners: undefined, setRef: () => {} }} />
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

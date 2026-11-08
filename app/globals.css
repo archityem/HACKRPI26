@@ -187,7 +187,8 @@ input[type="range"] { width: 100%; accent-color: var(--sage); margin: 4px 0; min
 .sheet__handle { align-self: center; width: 40px; height: 5px; border-radius: var(--r-pill); background: var(--line); flex: none; }
 .sheet__head { display: flex; flex-direction: column; gap: 4px; }
 .sheet__head p { color: var(--muted); }
-.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-bar) + 2 * var(--s-md) + 8px); z-index: 60; max-width: min(398px, calc(100% - 32px)); min-height: var(--tap); padding: 6px 8px 6px 20px; border-radius: var(--r-pill); background: var(--ink); color: var(--white); display: flex; align-items: center; gap: var(--s-sm); font: 600 15px/1.2 var(--font-body); animation: rise 250ms var(--spring); }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--tab-bar) + 2 * var(--s-md) + var(--btn-primary) + var(--s-lg)); z-index: 60; max-width: min(398px, calc(100% - 32px)); min-height: var(--tap); padding: 6px 8px 6px 20px; border-radius: var(--r-pill); background: var(--ink); color: var(--white); display: flex; align-items: center; gap: var(--s-sm); font: 600 15px/1.2 var(--font-body); animation: rise 250ms var(--spring); }
+.toast span { white-space: nowrap; }
 .toast button { background: none; border: 0; color: var(--sage); font: 700 15px var(--font-body); min-height: var(--tap); padding: 0 14px; border-radius: var(--r-pill); }
 .tabbar { position: fixed; left: 50%; transform: translateX(-50%); bottom: var(--s-md); width: min(398px, calc(100% - 32px)); height: var(--tab-bar); border-radius: var(--r-pill); background: var(--ink); color: var(--white); display: flex; align-items: center; padding: 0 8px; gap: 4px; z-index: 30; }
 .tabbar a, .tabbar button { flex: 1; height: 48px; border-radius: var(--r-pill); border: 0; background: transparent; color: var(--white); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; text-decoration: none; padding: 0; }
@@ -195,7 +196,7 @@ input[type="range"] { width: 100%; accent-color: var(--sage); margin: 4px 0; min
 .tabbar .t-meta { font-size: 10px; letter-spacing: 0.04em; }
 
 /* ---------- home + misc ---------- */
-.promo { display: flex; align-items: center; gap: 12px; }
+.promo { display: flex; flex-direction: row; align-items: center; gap: 12px; }
 .promo__icon { width: var(--tap); height: var(--tap); border-radius: 14px; background: var(--paper); display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .promo__text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .promo__text span:last-child { font-size: 13px; line-height: 1.35; color: var(--muted); }

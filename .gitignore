@@ -11,3 +11,6 @@ tsconfig.tsbuildinfo
 data/db.json
 .next-test/
 data/test-db.json
+agentfiles/.env
+agentfiles/*.key
+*.pem

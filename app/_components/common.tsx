@@ -44,13 +44,13 @@ export { initials };
 export const tripLink = (code: string) => (typeof window === "undefined" ? `/t/${code}` : `${window.location.origin}/t/${code}`);
 
 /** Share with the system sheet where there is one, otherwise copy. Resolves to what happened. */
-export async function shareOrCopy(text: string, url: string): Promise<"shared" | "copied" | "failed"> {
+export async function shareOrCopy(text: string, url?: string): Promise<"shared" | "copied" | "failed"> {
   try {
-    if (typeof navigator !== "undefined" && typeof navigator.share === "function") { await navigator.share({ text, url }); return "shared"; }
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") { await navigator.share(url ? { text, url } : { text }); return "shared"; }
   } catch (e) {
     if ((e as Error)?.name === "AbortError") return "failed"; // closed the sheet: not an error worth a message
   }
-  try { await navigator.clipboard.writeText(`${text} ${url}`); return "copied"; } catch { return "failed"; }
+  try { await navigator.clipboard.writeText(url ? `${text} ${url}` : text); return "copied"; } catch { return "failed"; }
 }
 
 interface InstallEvent extends Event { prompt: () => Promise<void> }

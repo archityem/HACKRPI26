@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, loadMemberId, saveMemberId, type Snapshot } from "@/lib/client";
+import { api, loadMemberId, rememberTrip, saveMemberId, type Snapshot } from "@/lib/client";
 import { ButtonLink, Card, Meta, TabBar, Text, ToastProvider, useToast } from "@/components/ui";
 import { AnswersScreen } from "./Answers";
 import { InviteScreen, LandingScreen } from "./Invite";
@@ -53,6 +53,7 @@ function Trip({ code }: { code: string }) {
   useEffect(() => {
     if (!snap || settled.current) return;
     settled.current = true;
+    if (me) rememberTrip(code, snap.trip.title);
     setView(fromHash() ?? (me?.ready ? (snap.trip.proposal ? "rank" : "vibe") : "invite"));
   }, [snap, me]);
 
@@ -90,7 +91,7 @@ function Trip({ code }: { code: string }) {
     code, snap, me, go, run,
     apply: setSnap,
     refresh: () => setTick((n) => n + 1),
-    onJoined: (id, fresh) => { saveMemberId(code, id); setMeId(id); setSnap(fresh); },
+    onJoined: (id, fresh) => { saveMemberId(code, id); rememberTrip(code, fresh.trip.title); setMeId(id); setSnap(fresh); },
   };
 
   const isHost = me?.id === snap.trip.hostMemberId;

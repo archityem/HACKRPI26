@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { PREFS, api, dayDiff, money, saveMemberId } from "@/lib/client";
+import { PREFS, api, dayDiff, money, rememberTrip, saveMemberId } from "@/lib/client";
 import { Button, Card, Chip, Field, Icon, IconButton, Meta, Text } from "@/components/ui";
 import { prefShort } from "../_components/common";
 
@@ -29,6 +29,7 @@ export default function NewTrip() {
         ...f, hostName: f.hostName.trim(), title: f.title.trim(), note: f.note.trim(),
       });
       saveMemberId(r.code, r.memberId);
+      rememberTrip(r.code, f.title.trim());
       router.push(`/t/${r.code}#invite`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn’t make the invite.");

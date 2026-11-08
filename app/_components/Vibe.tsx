@@ -2,6 +2,7 @@
 import { AIRPORTS, money, range, short } from "@/lib/client";
 import { AlertCard, AvatarRow, CrewRow, DateDots, StatTile, VibeBars } from "@/components/trip";
 import { Button, Card, Icon, IconButton, Meta, Text, useToast } from "@/components/ui";
+import { nudgeMessage } from "@/lib/messages";
 import { andList, prefShort, shareOrCopy, tripLink, windowShort, type Ctx } from "./common";
 
 const DAY = 86_400_000;
@@ -35,7 +36,7 @@ export function VibeScreen(ctx: Ctx) {
   const vibeRows = [...prefs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([id, count]) => ({ label: prefShort(id), count }));
 
   async function poke() {
-    const r = await shareOrCopy(`${andList(pending.map((p) => p.name))}: ${t.title} is waiting on your answers. 30 sec, no app:`, link);
+    const r = await shareOrCopy(nudgeMessage({ title: t.title, names: pending.map((p) => p.name), link }));
     if (r === "copied") toast("Link copied. Poke them in the gc.");
     if (r === "failed") toast("Select the link and copy it.");
   }

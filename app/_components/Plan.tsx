@@ -1,7 +1,9 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import { api, money, short, type Snapshot } from "@/lib/client";
+import { buildIcs } from "@/lib/ics";
 import { LODGING } from "@/lib/lodging";
+import { itineraryText } from "@/lib/messages";
 import { placeTone, AlertCard, AvatarRow, BoardingPass, DayTabs, DecisionCard, StatTile, Stub, TripTicket } from "@/components/trip";
 import { Button, Card, Confetti, Field, Icon, IconButton, LinkButton, Meta, Sheet, Text, useToast } from "@/components/ui";
 import { clock, mmdd, shareOrCopy, tripLink, weekday, type Ctx } from "./common";
@@ -90,6 +92,25 @@ export function PlanScreen(ctx: Ctx) {
     if (r === "copied") toast("Link copied.");
   }
 
+  async function copyItinerary() {
+    if (!it) return;
+    const r = await shareOrCopy(itineraryText({ destination: d!.name, start: m.start!, end: m.tripEnd!, itinerary: it }));
+    if (r === "copied") toast("Itinerary copied.");
+  }
+  function addToCalendar() {
+    const ics = buildIcs({
+      uid: `${ctx.code}@elsewhere`, title: `${d!.name} trip`, location: `${d!.name}, ${d!.country}`,
+      start: m.start!, end: m.tripEnd!, description: `${t.title}. ${it?.summary ?? ""} ${tripLink(ctx.code)}`.trim(),
+    });
+    const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${d!.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-trip.ics`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  const retry = () => ctx.run(() => api(`/api/trips/${ctx.code}/retry`, { memberId: me!.id }), "Trying again.");
+
   // Add-to-plan form
   const [title, setTitle] = useState("");
   const [time, setTime] = useState("12:00");
@@ -142,7 +163,7 @@ export function PlanScreen(ctx: Ctx) {
         <Card>
           {snap.ai.itinerary === "generating" && !it
             ? <><span className="t-label">Writing your itinerary…</span><span className="t-body-md muted">This usually takes 10–20 seconds, and this page updates by itself.</span></>
-            : <><span className="t-label">Nothing planned for {weekday(date)} yet.</span><span className="t-body-md muted">{snap.ai.itinerary === "off" ? "Add your own stops, or turn on the AI key for a drafted itinerary." : snap.ai.itinerary === "failed" ? "We couldn’t draft this one. Add your own stops." : "Add a stop to get it started."}</span></>}
+            : <><span className="t-label">Nothing planned for {weekday(date)} yet.</span><span className="t-body-md muted">{snap.ai.itinerary === "off" ? "Add your own stops, or turn on the AI key for a drafted itinerary." : snap.ai.itinerary === "failed" ? "The AI service is overloaded. Your plan is safe, and you can add your own stops." : "Add a stop to get it started."}</span>{snap.ai.itinerary === "failed" && me && <Button kind="soft" onClick={retry}>Try again</Button>}</>}
         </Card>
       )}
       {rows.map((r) => (
@@ -154,6 +175,16 @@ export function PlanScreen(ctx: Ctx) {
           <Meta className="muted">Good to know</Meta>
           <span className="t-body-md">{it.tips.join(" · ")}</span>
           <Meta className="muted">AI drafted · check hours and prices · nothing is booked</Meta>
+        </Card>
+      )}
+
+      {planning && (
+        <Card>
+          <Meta className="muted">Take it with you</Meta>
+          <div className="chips">
+            <Button kind="soft" onClick={addToCalendar}>Add to calendar</Button>
+            {it && snap.ai.itinerary === "ready" && <Button kind="soft" onClick={copyItinerary}>Copy itinerary</Button>}
+          </div>
         </Card>
       )}
 

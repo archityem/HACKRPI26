@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { aiEnabled, candidateKey, itineraryKey, planItinerary, proposeDestinations, type PlanInput } from "./ai";
 import { coverUrl } from "./cover";
+import { background } from "./background";
 import { FIXTURE_DESTINATIONS } from "./destinations";
+import { jobFresh } from "./jobs";
 import { compute } from "./matching";
 import { getStore } from "./store";
-import type { Destination, Member, Trip } from "./types";
+import type { Destination, JobState, Member, Trip } from "./types";
 
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"; // no look-alikes
 export const newCode = () =>
@@ -13,10 +15,20 @@ export const newId = () => randomUUID();
 
 // ---- Destination candidates (Gemini, generated in the background) ------------------------------
 
-const inflight = new Map<string, Promise<void>>();
-const failedKey = new Map<string, string>(); // trip code -> inputs key that failed; don't hammer the API
+const inflight = new Map<string, Promise<void>>(); // this process only; the trip's `jobs` field covers other instances
 
-export type Source = "gemini" | "fixture" | "pending";
+/** Record (or clear, with undefined) a background job on the trip so every server instance sees it. */
+async function setJob(code: string, name: "candidates" | "itinerary", job: JobState | undefined) {
+  const store = await getStore();
+  const trip = await store.getTrip(code);
+  if (!trip) return;
+  await store.updateTrip(code, { jobs: { ...trip.jobs, [name]: job } });
+}
+const running = (key: string): JobState => ({ key, at: new Date().toISOString(), state: "running" });
+const failed = (key: string): JobState => ({ key, at: new Date().toISOString(), state: "failed" });
+
+// fixture = AI is off (sample data on purpose); fallback = AI is on but failed, so sample data is a stand-in; pending = still generating.
+export type Source = "gemini" | "fixture" | "fallback" | "pending";
 
 /** Proposals are usable if they price every current departure airport, even if other inputs changed since. */
 function covers(c: NonNullable<Trip["candidates"]>, members: Member[]) {
@@ -29,15 +41,15 @@ export function destinationsFor(trip: Trip, members: Member[]): { destinations: 
   const added = trip.custom ?? []; // places members added to the ranking ride along with whatever the AI proposed
   if (!aiEnabled()) return { destinations: [...FIXTURE_DESTINATIONS, ...added], source: "fixture" };
   if (trip.candidates && covers(trip.candidates, members)) return { destinations: [...trip.candidates.destinations, ...added], source: "gemini" };
-  if (failedKey.get(trip.code) === candidateKey(trip, members)) return { destinations: [...FIXTURE_DESTINATIONS, ...added], source: "fixture" };
+  if (jobFresh(trip.jobs?.candidates, candidateKey(trip, members)) === "failed") return { destinations: [...FIXTURE_DESTINATIONS, ...added], source: "fallback" };
   return { destinations: [], source: "pending" };
 }
 
 /** Kick off (or join) background generation for a trip. Safe to call often; never throws. */
 export function ensureCandidates(code: string): Promise<void> {
   if (!aiEnabled()) return Promise.resolve();
-  const running = inflight.get(code);
-  if (running) return running; // that run re-checks inputs when it finishes
+  const existing = inflight.get(code);
+  if (existing) return existing; // that run re-checks inputs when it finishes
   const run = (async () => {
     const store = await getStore();
     for (let i = 0; i < 3; i++) {
@@ -46,15 +58,17 @@ export function ensureCandidates(code: string): Promise<void> {
       const members = await store.listMembers(code);
       if (!members.some((m) => m.ready)) return;
       const key = candidateKey(trip, members);
-      if (trip.candidates?.key === key || failedKey.get(code) === key) return;
+      if (trip.candidates?.key === key) return;
+      if (jobFresh(trip.jobs?.candidates, key)) return; // another instance is on it, or it failed recently
+      await setJob(code, "candidates", running(key));
       try {
         const candidates = await proposeDestinations(trip, members);
         await store.updateTrip(code, { candidates });
-        failedKey.delete(code);
+        await setJob(code, "candidates", undefined);
         await pruneToDestinations(code, candidates.destinations);
       } catch (e) {
         console.error(`[ai] proposeDestinations failed for ${code}:`, e instanceof Error ? e.message : e);
-        failedKey.set(code, key);
+        await setJob(code, "candidates", failed(key));
         return;
       }
     }
@@ -66,7 +80,6 @@ export function ensureCandidates(code: string): Promise<void> {
 // ---- Itinerary (generated once everyone has approved) ----------------------------------------
 
 const itinInflight = new Map<string, Promise<void>>();
-const itinFailed = new Map<string, string>(); // trip code -> key that failed
 
 async function planInputFor(trip: Trip, members: Member[]): Promise<PlanInput | null> {
   if (trip.phase !== "planning" || !trip.proposal) return null;
@@ -84,8 +97,8 @@ async function planInputFor(trip: Trip, members: Member[]): Promise<PlanInput | 
 /** Generate the itinerary in the background once the group has approved. Safe to call often; never throws. */
 export function ensureItinerary(code: string): Promise<void> {
   if (!aiEnabled()) return Promise.resolve();
-  const running = itinInflight.get(code);
-  if (running) return running;
+  const existing = itinInflight.get(code);
+  if (existing) return existing;
   const run = (async () => {
     const store = await getStore();
     const trip = await store.getTrip(code);
@@ -93,17 +106,32 @@ export function ensureItinerary(code: string): Promise<void> {
     const input = await planInputFor(trip, await store.listMembers(code));
     if (!input) return;
     const key = itineraryKey(input);
-    if (trip.itinerary?.key === key || itinFailed.get(code) === key) return;
+    if (trip.itinerary?.key === key) return;
+    if (jobFresh(trip.jobs?.itinerary, key)) return; // another instance is on it, or it failed recently
+    await setJob(code, "itinerary", running(key));
     try {
       await store.updateTrip(code, { itinerary: await planItinerary(input) });
-      itinFailed.delete(code);
+      await setJob(code, "itinerary", undefined);
     } catch (e) {
       console.error(`[ai] planItinerary failed for ${code}:`, e instanceof Error ? e.message : e);
-      itinFailed.set(code, key);
+      await setJob(code, "itinerary", failed(key));
     }
   })().finally(() => itinInflight.delete(code));
   itinInflight.set(code, run);
   return run;
+}
+
+/** Clear failed AI jobs for a trip and start them again. Used by the Retry button after an outage. */
+export async function retryAi(code: string) {
+  const store = await getStore();
+  const trip = await store.getTrip(code);
+  if (!trip) return;
+  const jobs = { ...trip.jobs };
+  if (jobs.candidates?.state === "failed") delete jobs.candidates;
+  if (jobs.itinerary?.state === "failed") delete jobs.itinerary;
+  await store.updateTrip(code, { jobs });
+  background(() => ensureCandidates(code));
+  background(() => ensureItinerary(code));
 }
 
 /** New proposals replace the old ones: drop votes/proposals pointing at destinations that no longer exist. */
@@ -112,9 +140,10 @@ async function pruneToDestinations(code: string, destinations: Destination[]) {
   const trip = await store.getTrip(code);
   const ids = new Set([...destinations, ...(trip?.custom ?? [])].map((d) => d.id));
   for (const v of await store.listVotes(code)) {
-    const ranking = (v.ranking ?? [v.destinationId]).filter((id) => ids.has(id));
+    const all = v.ranking ?? [v.destinationId];
+    const ranking = all.filter((id) => ids.has(id));
     if (!ranking.length) await store.deleteVote(code, v.memberId);
-    else if (ranking.length !== (v.ranking ?? [v.destinationId]).length) await store.setVote({ ...v, destinationId: ranking[0], ranking, locked: false });
+    else if (ranking.length !== all.length) await store.setVote({ ...v, destinationId: ranking[0], ranking, locked: false });
   }
   if (trip?.proposal && !ids.has(trip.proposal)) await resetAgreement(trip);
 }
@@ -129,7 +158,10 @@ export async function snapshot(code: string, me?: string | null) {
   const match = compute(trip, members, destinations);
   const planInput = await planInputFor(trip, members);
   const itinKey = planInput ? itineraryKey(planInput) : null;
-  if (planInput) void ensureItinerary(code);
+  const candKey = candidateKey(trip, members);
+  // Polling doubles as a safety net: if generation was cut off, the next poll restarts it (jobs prevent duplicates).
+  if (planInput) background(() => ensureItinerary(code));
+  if (source === "pending") background(() => ensureCandidates(code));
   const view = members.map((m) =>
     m.id === me ? m : { ...m, min: undefined, max: undefined },
   ) as Array<Member | Omit<Member, "min" | "max">>;
@@ -144,8 +176,15 @@ export async function snapshot(code: string, me?: string | null) {
     votes,
     me: me ?? null,
     ai: {
-      enabled: aiEnabled(), generating: inflight.has(code), source, model: trip.candidates?.model,
-      itinerary: itineraryStatus(trip, itinKey, itinInflight.has(code), itinKey !== null && itinFailed.get(code) === itinKey),
+      enabled: aiEnabled(),
+      generating: inflight.has(code) || jobFresh(trip.jobs?.candidates, candKey) === "running",
+      source,
+      model: trip.candidates?.model,
+      itinerary: itineraryStatus(
+        trip, itinKey,
+        itinInflight.has(code) || (itinKey !== null && jobFresh(trip.jobs?.itinerary, itinKey) === "running"),
+        itinKey !== null && jobFresh(trip.jobs?.itinerary, itinKey) === "failed",
+      ),
     },
     match: {
       start: match.start,

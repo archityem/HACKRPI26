@@ -12,7 +12,7 @@ const post = (url: string, body: unknown) =>
 const j = async (r: Response) => ({ status: r.status, body: (await r.json()) as any });
 
 before(async () => {
-  server = spawn("npx", ["next", "dev", "-p", String(PORT)], { env: { ...process.env, MONGODB_URI: "", GEMINI_API_KEY: "", NEXT_DIST_DIR: ".next-test", DATA_FILE: "data/test-db.json" }, stdio: "ignore", detached: true });
+  server = spawn("npx", ["next", "dev", "-p", String(PORT)], { env: { ...process.env, GEMINI_API_KEY: "", UPSTASH_REDIS_REST_URL: "", UPSTASH_REDIS_REST_TOKEN: "", KV_REST_API_URL: "", KV_REST_API_TOKEN: "", NEXT_DIST_DIR: ".next-test", DATA_FILE: "data/test-db.json" }, stdio: "ignore", detached: true });
   for (let i = 0; i < 60; i++) {
     try { await fetch(`http://localhost:${PORT}/`); return; } catch { await new Promise((r) => setTimeout(r, 1000)); }
   }
@@ -126,6 +126,15 @@ test("AI invite templates: 3 designs from the title, and a stored template is sa
   assert.match(t.palette.bg, /^#[0-9a-f]{6}$/);
   assert.equal((await post(B, { ...base, template: "not a template" })).status, 400);
   assert.equal((await j(await fetch(`${B}/${(await j(await post(B, base))).body.code}`))).body.trip.template, undefined);
+});
+
+test("retry: validates input, requires a ready member, 404s unknown trips", async () => {
+  const { body: c } = await j(await post(B, { hostName: "A", title: "T", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 3000 }));
+  assert.equal((await post(`${B}/${c.code}/retry`, {})).status, 400);
+  assert.equal((await post(`${B}/${c.code}/retry`, { memberId: c.memberId })).status, 403); // host hasn't answered yet
+  assert.equal((await post(`${B}/nope00/retry`, { memberId: "x" })).status, 404);
+  await post(`${B}/${c.code}/members`, { memberId: c.memberId, name: "A", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] });
+  assert.equal((await post(`${B}/${c.code}/retry`, { memberId: c.memberId })).status, 200);
 });
 
 test("validation and not-found", async () => {

@@ -10,7 +10,6 @@ export interface Trip {
   title: string;
   note: string;
   theme: Theme;
-  tone?: "sage" | "apricot" | "dusk" | "lavender" | "rose" | "butter" | "sky"; // the host's ticket color
   template?: InviteTemplate; // AI-designed invite look (lib/template.ts); the classic poster when absent
   cover?: string; // host's invite picture as a data URL (lib/cover.ts); never sent in snapshots
   windowStart: string; // YYYY-MM-DD, host's rough date window
@@ -24,6 +23,8 @@ export interface Trip {
   createdAt: string;
   candidates?: Candidates; // cached destination proposals; fixtures are used when absent
   itinerary?: Itinerary; // cached plan for the approved destination
+  jobs?: Jobs; // background AI work, recorded on the trip so every server instance sees it
+  tone?: "sage" | "apricot" | "dusk" | "lavender" | "rose" | "butter" | "sky"; // the host's ticket color
   custom?: Destination[]; // places members added to the ranking ("got a better idea?")
   drafts?: Record<string, Destination>; // a member's priced-but-not-yet-added place, by member id
   lodgingVotes?: Record<string, string>; // member id -> lodging option id (lib/lodging.ts)
@@ -36,6 +37,17 @@ export interface PlanItem {
   time: string; // HH:MM, 24h
   title: string;
   addedBy: string; // member id
+}
+
+export interface JobState {
+  key: string; // hash of the inputs the job is for
+  at: string; // ISO time it started / failed
+  state: "running" | "failed";
+}
+
+export interface Jobs {
+  candidates?: JobState;
+  itinerary?: JobState;
 }
 
 export interface Candidates {
@@ -58,6 +70,7 @@ export interface Member {
   prefs: string[];
   deals: Deal[];
   ready: boolean;
+  hue?: number; // index into the traveler palette, assigned on join so a person keeps one color
 }
 
 export interface Vote {

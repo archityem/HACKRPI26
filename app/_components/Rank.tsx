@@ -124,6 +124,7 @@ export function RankScreen(ctx: Ctx) {
       .catch((e) => toast(e instanceof Error ? e.message : "Couldn’t save your ranking."))
       .finally(() => { inflight.current--; });
   }
+  const retry = () => ctx.run(() => api(`/api/trips/${ctx.code}/retry`, { memberId: me!.id }), "Trying again.");
   const reorder = (next: string[]) => { setOrder(next); save(next, false); };
   const lockIn = () => save(order, true, "Ranking locked.", () => save(order, false));
   const unlock = () => save(order, false);
@@ -149,6 +150,16 @@ export function RankScreen(ctx: Ctx) {
         <Meta className="muted" aria-live="polite">pricing destinations for your group…</Meta>
       </>
     );
+  } else if (snap.ai.source === "fallback" && m.overlap && !eligible.length) {
+    body = (
+      <>
+        <div className="why" style={{ background: "var(--surface)", borderRadius: "var(--r-lg)", padding: 16 }}>
+          <Meta>Ideas aren’t available right now</Meta>
+          <span>The AI service that suggests places is overloaded, so we couldn’t build your list. Your answers are saved. Try again in a minute.</span>
+        </div>
+        <div className="cta"><Button kind="primary" onClick={retry}>Try again</Button></div>
+      </>
+    );
   } else if (!m.overlap || !eligible.length) {
     body = (
       <>
@@ -169,6 +180,12 @@ export function RankScreen(ctx: Ctx) {
   } else {
     body = (
       <>
+        {snap.ai.source === "fallback" && (
+          <div className="why" style={{ background: "var(--apricot)", borderRadius: "var(--r-lg)", padding: "12px 16px", flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }} role="status">
+            <span className="col" style={{ gap: 2 }}><span className="t-meta">AI ideas unavailable</span><span>These are sample places that may not suit your group.</span></span>
+            <Button kind="ink" onClick={retry}>Try again</Button>
+          </div>
+        )}
         <RankList items={items} onReorder={reorder} shared={{ month, source, travelers: m.readyCount, meta: `${m.start && m.tripEnd ? windowShort(m.start, m.tripEnd) : ""} · ${t.nights} nights · ${(t.vibes.length ? t.vibes : eligible.find((d) => d.id === order[0])?.matched.slice(0, 2) ?? []).map(prefShort).join(" + ") || "Anything goes"}` }} />
         <button type="button" className="addrow" onClick={() => setPropose(true)}><Icon name="plus" size={18} stroke={2.6} />Suggest your own place</button>
         {m.excluded.length > 0 && (

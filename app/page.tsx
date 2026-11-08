@@ -1,4 +1,5 @@
 import { Stub, TripTicket } from "@/components/trip";
+import { YourTrips } from "./_components/YourTrips";
 import { ButtonLink, Meta, Text } from "@/components/ui";
 
 export default function Home() {
@@ -24,6 +25,7 @@ export default function Home() {
           <div><Meta>Step 4</Meta><Text variant="numeral-xs">IT’S HAPPENING</Text></div>
         </div>
       </TripTicket>
+      <YourTrips />
       <div className="cta">
         <ButtonLink kind="primary" href="/new" icon="arrow">Start a trip</ButtonLink>
       </div>

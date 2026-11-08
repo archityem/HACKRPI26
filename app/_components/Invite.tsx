@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { api } from "@/lib/client";
+import { inviteMessage } from "@/lib/messages";
 import { AppPromo, AvatarRow, Stub, StubGrid, TRIP_TONES, TripTicket, tripTone } from "@/components/trip";
 import { Button, Card, Icon, IconButton, Meta, Sheet, Text, useToast } from "@/components/ui";
 import { prefShort, shareOrCopy, tripLink, useInstall, windowLabel, type Ctx } from "./common";
@@ -34,7 +35,7 @@ export function InviteScreen(ctx: Ctx) {
   const shown = link.replace(/^https?:\/\//, "");
 
   async function send() {
-    const r = await shareOrCopy(`Where should we go? ${t.title}. Answer in 30 sec, no app needed:`, link);
+    const r = await shareOrCopy(inviteMessage({ title: t.title, windowStart: t.windowStart, windowEnd: t.windowEnd, nights: t.nights, maxBudget: t.maxBudget, link }));
     if (r === "copied") toast("Link copied. Paste it in the gc.");
     if (r === "failed") toast("Select the link and copy it.");
   }

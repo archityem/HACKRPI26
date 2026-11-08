@@ -1,67 +1,57 @@
 # Elsewhere
 
-A playful group trip planner prototype for HackRPI 2026. Friends join through a custom invitation, share their constraints, compare trip ideas, and approve a plan together.
+**Plan a group trip everyone can say yes to.** One person starts a trip and sends a link. Friends open it on their phones, answer a few quick questions, and rank the places AI suggests. The group's top pick becomes the plan, with a day-by-day itinerary.
 
-## Run it
+No app to install and no account to create.
 
-Open **index.html** in a modern browser. No package installation or API keys are required.
+**Try it:** https://hackrpi-26.vercel.app
 
-To serve it locally instead, run this command from the repository root:
+## The problem
 
-```sh
-python3 -m http.server 8000
-```
+Group trips die in the group chat. One person floats a weekend, everyone replies with different dates and budgets, and the thread goes quiet before anyone picks a place. Elsewhere turns that chat into a short, friendly flow where everyone's answers count and the group decides together.
 
-Then open http://localhost:8000.
+## How it works
 
-## Try the full flow
+1. **Start a trip.** Name it, pick a rough date window, a trip length, a max budget and a vibe. You get an invite link.
+2. **Send the link.** Friends open it in their browser. They only give a first name, with no sign-up and no password.
+3. **Everyone answers.** Home airport, their own budget (kept private), dates they can do, passport and hard nos, and what they want from the trip.
+4. **Check the vibe.** A live summary shows who has answered, the group's budget range, the dates that work for everyone, and what people want. It also nudges anyone who hasn't answered.
+5. **Rank 'em.** AI suggests places that fit the group's airports, dates and budgets. Tap a place to see its price and why it fits, drag to reorder, or suggest your own place and let AI price it. Lock in your ranking.
+6. **It's happening.** When everyone has locked in, the group's top pick becomes the plan. Everyone says "I'm in", votes on where to stay, and gets an AI-drafted itinerary they can edit and add to their calendar.
 
-1. Select **I'm interested. Let's do this** on the invite.
-2. Enter a name, departure airport, and available March dates.
-3. Set a maximum budget or comfortable range, then pick preferences and dealbreakers.
-4. Explore the updated destination suggestions, react, and vote.
-5. Propose a destination and approve it.
-6. Use the **Demo traveler** selector in the footer to switch to Maya and Leo and approve as each traveler.
-7. After all three approve, the shared planning checklist unlocks.
+## Screenshots
 
-Choose **Make it yours** to customize the title, note, and cover color and preview the invitation card or embed.
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/screenshots/1-start.png" alt="Start a trip screen" width="240"><br><sub><b>Start a trip</b><br>Set the basics in one screen</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/2-landing.png" alt="Invite link landing page" width="240"><br><sub><b>The invite link</b><br>What a friend sees, no account needed</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/3-invite.png" alt="Invite screen for the host" width="240"><br><sub><b>Invite the group</b><br>Pick a ticket color and share the link</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="docs/screenshots/4-vibe.png" alt="Vibe check summary" width="240"><br><sub><b>Vibe check</b><br>Who answered, budgets, best dates</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/5-rank.png" alt="Rank 'em screen" width="240"><br><sub><b>Rank 'em</b><br>Open, compare and drag to reorder</sub></td>
+    <td align="center" width="33%"><img src="docs/screenshots/6-plan.png" alt="Trip plan screen" width="240"><br><sub><b>Trip plan</b><br>Locked trip, stay vote and itinerary</sub></td>
+  </tr>
+</table>
 
-## Features
+## Highlights
 
-- Custom invitation title, message, and three cover themes.
-- Date presets and exact available date ranges.
-- Maximum budgets and comfortable budget ranges.
-- Departure airports, interests, and hard dealbreakers.
-- Suggestions filtered by shared availability, estimated trip cost, and every submitted requirement.
-- Flight, lodging, and daily spending breakdowns.
-- Destination votes and emoji reactions.
-- Separate final approvals from every traveler before moving to planning.
-- Conflicting-date and no-affordable-trip states.
-- Mobile layouts and light/dark appearance.
-- Browser-local saved state when storage is available.
+- **Link first.** A trip is a link. Anyone with it can join from a phone browser, and each device keeps its own private token, so people can only act as themselves.
+- **Private budgets.** The group sees a range, never one person's number.
+- **AI that helps, not blocks.** Gemini suggests destinations, prices places you add yourself, and drafts the itinerary. If it's slow or unavailable, the app falls back to sample destinations and lets you retry.
+- **Decide, don't debate.** Everyone ranks, the group's top pick rises on its own, and the trip locks when everyone has.
+- **Made for phones.** A ticket-stack design with big type, one main button per screen, and drag-to-rank that works with a thumb.
+- **Take it with you.** Add the plan to your calendar, copy the itinerary, or install the app to your home screen.
 
-## Edit and rebuild
+## Built with
 
-Edit **prototype/elsewhere.html**, which contains the UI, styles, sample data, and interaction logic. Then regenerate the browser entry point:
+Next.js, React and TypeScript, styled with Tailwind. Trips are stored in Upstash Redis, AI comes from the Gemini API, and drag-to-rank uses dnd-kit. It's deployed on Vercel.
 
-```sh
-python3 scripts/build.py
-```
+## Deploying your own
 
-Commit both the source and the rebuilt **index.html**. The build uses Python's standard library and preserves the standalone page's preview runtime. It does not require Codex or any plugin files.
+1. Import the repository into Vercel.
+2. Add the **Upstash Redis** integration to the project. It supplies the database variables (`KV_REST_API_URL` and `KV_REST_API_TOKEN`).
+3. Optional: add `GEMINI_API_KEY` to turn on AI destination ideas, pricing and itineraries.
+4. Redeploy so the new variables take effect.
 
-The source fragment can also be opened directly for quick UI work, but the standalone **index.html** supplies browser-local state persistence.
-
-## Prototype scope
-
-This is a frontend demonstration with three simulated travelers, three departure airports, and five candidate destinations for a five-night trip during March 2027. Fares, lodging, flight attributes, and daily spending are illustrative fixtures. The recommendations use local filtering and preference ranking, not a live AI or flight-search API.
-
-The lower budget value expresses comfort; the upper value is the hard ceiling. Voting expresses a favorite. Final approval is a separate action. Editing a traveler's constraints clears the proposed plan and previous final approvals.
-
-Invite links and embed code are previews, not published invites. Travelers and votes do not synchronize across devices. The privacy treatment for individual budgets is visual only; this demo has no authentication or authorization. There are no live bookings, wallet connections, or Solana payments. The final checklist records planning progress only.
-
-Google Fonts is used for typography; system fonts provide a fallback. The generated page includes a sandboxed preview runtime for local state and appearance handling.
-
-## Validation
-
-The prototype was exercised in Microsoft Edge on desktop and at widths of 1024, 736, 390, and 320 pixels. Checks covered date and budget validation, filtering, totals, reactions, votes, unanimous approval, approval invalidation, invite customization, and horizontal overflow. Light and dark appearances were visually reviewed.
+See `.env.example` for the full list of settings.

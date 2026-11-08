@@ -7,7 +7,9 @@ import type { Candidates, Destination, Itinerary, Member, Trip } from "./types";
 
 // Fares and lodging from the model are ESTIMATES, not live prices. The UI labels them that way.
 
-export const aiEnabled = () => Boolean(process.env.GEMINI_API_KEY);
+// Production already stores the key as `Gemini`. A non-empty GEMINI_API_KEY still wins.
+export const geminiKey = () => process.env.GEMINI_API_KEY || process.env.Gemini || "";
+export const aiEnabled = () => Boolean(geminiKey());
 // GEMINI_MODEL, if set, is tried first. Ordered by measured latency/availability (3.7/3.8 were overloaded on 2026-11-07);
 // slow, overloaded, or unavailable models fall through to the next.
 const MODELS = () =>
@@ -17,7 +19,7 @@ const COUNT = 8;
 const TIMEOUT_MS = 30_000;
 
 let client: GoogleGenAI | undefined;
-const ai = () => (client ??= new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY }));
+const ai = () => (client ??= new GoogleGenAI({ apiKey: geminiKey() }));
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const transient = (e: unknown) => [429, 500, 503, 504].includes((e as { status?: number })?.status ?? 0);

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { candidateKey, itineraryKey, toDestinations, toItinerary, type PlanInput } from "../lib/ai.ts";
+import { aiEnabled, candidateKey, geminiKey, itineraryKey, toDestinations, toItinerary, type PlanInput } from "../lib/ai.ts";
 import { compute } from "../lib/matching.ts";
 import type { Member, Trip } from "../lib/types.ts";
 
@@ -18,6 +18,53 @@ const trip = (o: Partial<Trip> = {}): Trip => ({
 const member = (id: string, o: Partial<Member> = {}): Member => ({
   id, tripCode: "t", name: id, origin: "BOS", start: "2027-03-06", end: "2027-03-14", min: 0, max: 2000,
   prefs: ["beach"], deals: [], ready: true, ...o,
+});
+
+test("aiEnabled: GEMINI_API_KEY wins; an empty or missing key falls back to Gemini", () => {
+  const prevKey = process.env.GEMINI_API_KEY;
+  const prevGemini = process.env.Gemini;
+  const restore = () => {
+    if (prevKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = prevKey;
+    if (prevGemini === undefined) delete process.env.Gemini;
+    else process.env.Gemini = prevGemini;
+  };
+  // Placeholders only. A mismatch reports a label, never the key string.
+  const label = () => {
+    const key = geminiKey();
+    if (key === "primary-not-a-key") return "primary";
+    if (key === "fallback-not-a-key") return "fallback";
+    if (key === "") return "off";
+    return "other";
+  };
+  try {
+    delete process.env.GEMINI_API_KEY;
+    delete process.env.Gemini;
+    assert.equal(label(), "off");
+    assert.equal(aiEnabled(), false);
+
+    process.env.Gemini = "fallback-not-a-key";
+    assert.equal(label(), "fallback");
+    assert.equal(aiEnabled(), true);
+
+    process.env.GEMINI_API_KEY = "";
+    assert.equal(label(), "fallback");
+    assert.equal(aiEnabled(), true);
+
+    process.env.GEMINI_API_KEY = "primary-not-a-key";
+    assert.equal(label(), "primary");
+    assert.equal(aiEnabled(), true);
+
+    delete process.env.Gemini;
+    assert.equal(label(), "primary");
+    assert.equal(aiEnabled(), true);
+
+    process.env.GEMINI_API_KEY = "";
+    assert.equal(label(), "off");
+    assert.equal(aiEnabled(), false);
+  } finally {
+    restore();
+  }
 });
 
 test("toDestinations: prices every requested origin, normalizing IATA case", () => {

@@ -151,25 +151,28 @@ input[type="range"] { width: 100%; accent-color: var(--sage); margin: 4px 0; min
 .crew__text .t-meta { color: var(--muted); }
 
 /* ---------- ranking ---------- */
-.ranksort { position: relative; }
-.rankrow { border-radius: 20px; color: var(--ink); position: relative; overflow: hidden; transition: border-radius 280ms var(--ease); }
-.rankrow[data-open] { border-radius: var(--r-xl); }
-.rankrow[data-overlay] { transform: translateY(-4px) scale(1.02); }
+.rankrow { height: 52px; border-radius: 20px; padding: 0; display: flex; align-items: center; gap: 0; color: var(--ink); touch-action: pan-y; position: relative; transition: transform var(--press) var(--spring); }
+.rankrow[data-dragging] { transform: translateY(-4px) scale(1.02); z-index: 3; }
 .rankrow[data-new] { animation: pop 500ms var(--spring); }
-.rankrow__head { height: 52px; display: flex; align-items: center; padding: 0 4px 0 0; }
-.rankrow__toggle { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; padding: 0 0 0 12px; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.rankrow__main { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: inherit; padding: 0 10px 0 12px; text-align: left; cursor: pointer; touch-action: pan-y; }
 .rankrow__name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .rankrow__name .t-display-row { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rankrow__name .t-meta { font-size: 11px; }
 .rankrow__price { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
 .rankrow__price .t-meta { font-size: 11px; }
-.rankrow__handle { width: var(--tap); height: var(--tap); border: 0; background: transparent; color: inherit; display: inline-flex; align-items: center; justify-content: center; padding: 0; touch-action: none; cursor: grab; flex: none; }
-.rankrow__more { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms var(--ease); }
-.rankrow[data-open] > .rankrow__more { grid-template-rows: 1fr; }
-.rankrow__moreinner { min-height: 0; overflow: hidden; }
-.rankrow__body { padding: var(--s-xs) var(--s-md) var(--s-md); display: flex; flex-direction: column; gap: 10px; }
-.rankrow__parts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s-xs); }
-.rankrow__parts > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rankrow__handle { width: var(--tap); height: var(--tap); margin-right: 4px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; touch-action: none; cursor: grab; flex: none; }
+/* One place = a compact row and a ticket, cross-resized: the row shrinks as the ticket unfolds, and back. */
+.rankitem__row, .rankitem__ticket { display: grid; transition: grid-template-rows 280ms var(--ease); }
+.rankitem__row { grid-template-rows: 1fr; }
+.rankitem__ticket { grid-template-rows: 0fr; }
+.rankitem[data-open] > .rankitem__row { grid-template-rows: 0fr; }
+.rankitem[data-open] > .rankitem__ticket { grid-template-rows: 1fr; }
+.rankitem__inner { min-height: 0; overflow: hidden; }
+.rankticket { position: relative; }
+.rankticket[data-dragging] { transform: translateY(-4px) scale(1.02); }
+.rankticket__spacer { width: var(--tap); height: var(--tap); flex: none; }
+.rankticket__hit { position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; margin: 0; background: transparent; cursor: pointer; border-radius: var(--r-xl); touch-action: pan-y; }
+.rankticket__handle { position: absolute; top: 20px; right: 20px; z-index: 2; display: flex; }
 .addrow { height: 48px; border-radius: 20px; border: 2px dashed var(--line); background: transparent; color: var(--ink); display: flex; align-items: center; justify-content: center; gap: var(--s-xs); font: 600 15px var(--font-body); width: 100%; }
 .skeleton { background: var(--line); border-radius: 20px; animation: pulse 1.1s ease-in-out infinite alternate; }
 

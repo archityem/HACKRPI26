@@ -1,10 +1,10 @@
 "use client";
-import { DndContext, DragOverlay, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { Icon, Meta, Text } from "../ui";
-import { AIVerdictPill, placeTone, verdictText } from "./index";
+import { AIVerdictPill, Stub, TripTicket, placeTone, verdictText } from "./index";
 import type { Verdict } from "@/lib/rank";
 
 export interface RankItem {
@@ -16,108 +16,108 @@ export interface RankItem {
   sub?: string; // "JL's idea · AI priced"
   why: string;
   isNew?: boolean;
-  flight?: number; // per person
-  stay?: number; // per person
-  daily?: number; // food + fun, per person
-  /** True when flight/stay/daily are this member's own costs, false when they are group averages. */
-  mine?: boolean;
 }
 
 interface Shared { month: string; source: "AI" | "Est."; travelers: number; meta: string }
+interface HandleProps { name: string; attrs: object; listeners: object | undefined; setRef: (el: HTMLElement | null) => void }
 
-const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
-
-type HandleProps = { attrs?: object; listeners?: object; setRef?: (el: HTMLElement | null) => void };
-
-function Handle({ name, attrs, listeners, setRef }: { name: string } & HandleProps) {
+function Handle({ name, attrs, listeners, setRef }: HandleProps) {
   return (
-    <button type="button" ref={setRef} className="rankrow__handle" aria-label={`Drag to reorder ${name}. Or focus and press space, then use the arrow keys.`} {...attrs} {...listeners}>
+    <button type="button" ref={setRef} className="rankrow__handle" {...attrs} {...listeners} aria-label={`Drag to reorder ${name}. Or focus and press space, then use the arrow keys.`}>
       <Icon name="drag" size={20} stroke={2.4} />
     </button>
   );
 }
 
-/** One ranked place: a compact row that opens in place to show the details. Same structure for every rank. */
-function Row({ item, index, shared, open, onToggle, handle, overlay, isNew }: {
-  item: RankItem; index: number; shared: Shared; open: boolean; onToggle?: () => void; handle: HandleProps; overlay?: boolean; isNew?: boolean;
-}) {
-  const panel = `rank-${item.id}`;
-  const hasParts = item.flight !== undefined && item.stay !== undefined && item.daily !== undefined;
+function RankTicket({ item, index, shared, dragging, onToggle, handle }: { item: RankItem; index: number; shared: Shared; dragging: boolean; onToggle: () => void; handle: HandleProps }) {
   return (
-    <div className="rankrow" data-tone={placeTone(item.id)} data-open={open ? "" : undefined} data-overlay={overlay ? "" : undefined} data-new={isNew ? "" : undefined}>
-      <div className="rankrow__head">
-        <button type="button" className="rankrow__toggle" aria-expanded={open} aria-controls={panel} onClick={onToggle} tabIndex={overlay ? -1 : undefined}>
-          <span className="rankbadge"><Text variant="numeral-xxs" className="">{index + 1}</Text></span>
-          <span className="rankrow__name"><Text variant="display-row" className="">{item.name.toUpperCase()}</Text>{item.sub && <Meta>{item.sub}</Meta>}</span>
-          <span className="rankrow__price"><Text variant="numeral-xxs" className="">{usd(item.per)} / PP</Text><Meta>{verdictText(item.verdict, shared.month)}</Meta></span>
-        </button>
-        <Handle name={item.name} {...handle} />
-      </div>
-      <div className="rankrow__more" id={panel} inert={!open}>
-        <div className="rankrow__moreinner">
-          <div className="rankrow__body">
-            <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
-              <AIVerdictPill verdict={item.verdict} month={shared.month} source={shared.source} />
-              <Meta>{shared.meta}</Meta>
-            </div>
-            <div className="row row--between" style={{ alignItems: "flex-end" }}>
-              <div className="col" style={{ gap: 2 }}><Meta>Per person</Meta><Text variant="numeral-md">{usd(item.per)}</Text></div>
-              <div className="col" style={{ gap: 2, alignItems: "flex-end" }}><Meta>Group of {shared.travelers}</Meta><Text variant="numeral-xs">{usd(item.total)} total</Text></div>
-            </div>
-            {hasParts && (
-              <div className="rankrow__parts">
-                <div><Meta>Flights</Meta><Text variant="numeral-xxs" className="">{usd(item.flight!)}</Text></div>
-                <div><Meta>Stay</Meta><Text variant="numeral-xxs" className="">{usd(item.stay!)}</Text></div>
-                <div><Meta>Food + fun</Meta><Text variant="numeral-xxs" className="">{usd(item.daily!)}</Text></div>
-              </div>
-            )}
-            {hasParts && <Meta>{item.mine ? "Your share, per person" : "Group average, per person"}</Meta>}
-            <div className="why"><Meta>Why it fits</Meta><span>{item.why}</span></div>
-          </div>
+    <div className="rankticket" data-dragging={dragging ? "" : undefined}>
+      <TripTicket tone={placeTone(item.id)} small>
+        <div className="ticket__top">
+          <span className="row" style={{ gap: 8 }}>
+            <span className="rankbadge"><Text variant="numeral-xxs" className="">{index + 1}</Text></span>
+            {index === 0 && <Meta>Top pick</Meta>}
+          </span>
+          <span className="row" style={{ gap: 0 }}>
+            <AIVerdictPill verdict={item.verdict} month={shared.month} source={shared.source} />
+            <span className="rankticket__spacer" aria-hidden="true" />
+          </span>
         </div>
+        <Text variant="display-ticket" className="ticket__name">{item.name.toUpperCase()}</Text>
+        <Meta>{shared.meta}</Meta>
+        <Stub />
+        <div className="row row--between" style={{ alignItems: "flex-end" }}>
+          <div className="col" style={{ gap: 2 }}><Meta>Per person</Meta><Text variant="numeral-md">${item.per.toLocaleString("en-US")}</Text></div>
+          <div className="col" style={{ gap: 2, alignItems: "flex-end" }}><Meta>Group of {shared.travelers}</Meta><Text variant="numeral-xs">${item.total.toLocaleString("en-US")} total</Text></div>
+        </div>
+        <div className="why"><Meta>Why it fits</Meta><span>{item.why}</span></div>
+      </TripTicket>
+      <button type="button" className="rankticket__hit" aria-expanded="true" aria-label={`Hide details for ${item.name}`} onClick={onToggle} />
+      <span className="rankticket__handle">
+        <Handle {...handle} />
+      </span>
+    </div>
+  );
+}
+
+function CompactRow({ item, index, shared, dragging, onToggle, handle }: { item: RankItem; index: number; shared: Shared; dragging: boolean; onToggle: () => void; handle: HandleProps }) {
+  return (
+    <div className="rankrow" data-tone={placeTone(item.id)} data-dragging={dragging ? "" : undefined} data-new={item.isNew ? "" : undefined}>
+      <button type="button" className="rankrow__main" aria-expanded="false" onClick={onToggle}>
+        <span className="rankbadge"><Text variant="numeral-xxs" className="">{index + 1}</Text></span>
+        <span className="rankrow__name"><Text variant="display-row" className="">{item.name.toUpperCase()}</Text>{item.sub && <Meta>{item.sub}</Meta>}</span>
+        <span className="rankrow__price"><Text variant="numeral-xxs" className="">${item.per.toLocaleString("en-US")} / PP</Text><Meta>{verdictText(item.verdict, shared.month)}</Meta></span>
+        <span className="sr-only">Show details</span>
+      </button>
+      <Handle {...handle} />
+    </div>
+  );
+}
+
+function SortableRow({ item, index, shared, expanded, onToggle }: { item: RankItem; index: number; shared: Shared; expanded: boolean; onToggle: () => void }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  // Translate only: dnd-kit's scale would stretch an item that moves into a slot of a different height.
+  const style = { transform: CSS.Translate.toString(transform), transition, zIndex: isDragging ? 3 : undefined, position: "relative" as const };
+  const live: HandleProps = { name: item.name, attrs: attributes, listeners, setRef: setActivatorNodeRef };
+  const idle: HandleProps = { name: item.name, attrs: {}, listeners: undefined, setRef: () => {} }; // only the visible look owns the drag handle
+  // Both looks stay mounted: the compact row shrinks while the ticket unfolds (and back), so opening and closing animate.
+  // The hidden one is `inert`, so it can't be tabbed to or clicked.
+  return (
+    <div ref={setNodeRef} style={style} className="rankitem" data-open={expanded ? "" : undefined}>
+      <div className="rankitem__row" inert={expanded}>
+        <div className="rankitem__inner"><CompactRow item={item} index={index} shared={shared} dragging={isDragging} onToggle={onToggle} handle={expanded ? idle : live} /></div>
+      </div>
+      <div className="rankitem__ticket" inert={!expanded}>
+        <div className="rankitem__inner"><RankTicket item={item} index={index} shared={shared} dragging={isDragging} onToggle={onToggle} handle={expanded ? live : idle} /></div>
       </div>
     </div>
   );
 }
 
-function SortableRow({ item, index, shared, open, onToggle, hidden }: { item: RankItem; index: number; shared: Shared; open: boolean; onToggle: () => void; hidden: boolean }) {
-  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition } = useSortable({ id: item.id, transition: { duration: 200, easing: "cubic-bezier(0.2, 0, 0, 1)" } });
-  // Translate only: never scale, so a row moving into a different-sized slot cannot stretch.
-  const style = { transform: CSS.Translate.toString(transform), transition, opacity: hidden ? 0.3 : undefined };
-  return (
-    <div ref={setNodeRef} style={style} className="ranksort">
-      <Row item={item} index={index} shared={shared} open={open} onToggle={onToggle} isNew={item.isNew} handle={{ attrs: attributes, listeners, setRef: setActivatorNodeRef }} />
-    </div>
-  );
-}
-
-/** The ranked list: every place is the same row; tap one to open its details. Drag by the handle (mouse, touch or keyboard). */
+/** One place is open at a time (#1 to start). Opening one closes the other. Drag the handle — not the card — to reorder. */
 export function RankList({ items, onReorder, shared }: { items: RankItem[]; onReorder: (ids: string[]) => void; shared: Shared }) {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
-  const [openId, setOpenId] = useState<string | null>(() => items[0]?.id ?? null); // #1 starts open, once. Only one place is open at a time.
+  const [openId, setOpenId] = useState<string | null>(() => items[0]?.id ?? null);
   const [activeId, setActiveId] = useState<string | null>(null);
-  // Opening a place closes the one that was open; tapping the open one closes it. Both animate together.
-  const toggle = (id: string) => setOpenId((cur) => (cur === id ? null : id));
-  // While dragging everything is collapsed so all slots are the same height; the open place is untouched and returns on drop.
+  const ids = items.map((item) => item.id);
+  if (openId && !ids.includes(openId)) setOpenId(null);
+  // While dragging, everything is closed so every slot is the same height; the open place comes back on drop.
   const isOpen = (id: string) => activeId === null && openId === id;
-  const active = activeId ? items.findIndex((i) => i.id === activeId) : -1;
-
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  function toggle(id: string) {
+    setOpenId((current) => (current === id ? null : id));
+  }
   function start(e: DragStartEvent) { setActiveId(String(e.active.id)); }
   function end(e: DragEndEvent) {
     setActiveId(null);
-    const { active: a, over } = e;
-    if (!over || a.id === over.id) return;
-    const ids = items.map((i) => i.id);
-    onReorder(arrayMove(ids, ids.indexOf(String(a.id)), ids.indexOf(String(over.id))));
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    onReorder(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
   }
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={start} onDragEnd={end} onDragCancel={() => setActiveId(null)}>
-      <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-        <div className="col">{items.map((it, i) => <SortableRow key={it.id} item={it} index={i} shared={shared} open={isOpen(it.id)} onToggle={() => toggle(it.id)} hidden={it.id === activeId} />)}</div>
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        <div className="col">{items.map((it, i) => <SortableRow key={it.id} item={it} index={i} shared={shared} expanded={isOpen(it.id)} onToggle={() => toggle(it.id)} />)}</div>
       </SortableContext>
-      <DragOverlay>
-        {active >= 0 ? <Row item={items[active]} index={active} shared={shared} open={false} overlay handle={{}} /> : null}
-      </DragOverlay>
     </DndContext>
   );
 }

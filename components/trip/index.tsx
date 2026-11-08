@@ -3,13 +3,13 @@ import type { ReactNode } from "react";
 import { Avatar, Button, Card, EmptySeat, Icon, Meta, Text, useCountUp, type Tone } from "../ui";
 import { avatars, avatarsGap, bars, barsFill, barsTrack, cn, col, crew, crewText, dayTab, dayTabs, dot, dots, dotsHl, iconBtn, pass, passBody, passStub, pill, pillVerdict, promo, promoIcon, promoSub, promoText, q, qActive, qCheck, qDone, qText, qUpcoming, row, stat, statValue, stub, stubCell, stubGrid, stubLine, stubLineSm, stubSm, stubValue, ticket, ticketName, ticketPattern, toneClass, type, why } from "../ui/tw";
 import type { Verdict } from "@/lib/rank";
+import { TRIP_TONES as TONES, hash, tripToneFor } from "@/lib/tone";
 
 // ---------- Trip colors ----------
 // Every trip gets one color, chosen from its code so the same trip always looks the same.
 // Trip colors only (no dusk for the ticket by default: it is the one dark color, used for money).
-export const TRIP_TONES: Tone[] = ["sage", "apricot", "lavender", "rose", "butter", "sky", "dusk"];
-const hash = (s: string) => [...s].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7);
-export const tripTone = (code: string, chosen?: Tone): Tone => chosen ?? TRIP_TONES[hash(code) % TRIP_TONES.length];
+export const TRIP_TONES: Tone[] = [...TONES];
+export const tripTone = (code: string, chosen?: Tone): Tone => tripToneFor(code, chosen);
 /** Suggestion rows: a stable color per place, never dusk (that one is for money). */
 export const placeTone = (id: string): Tone => (["apricot", "lavender", "butter", "rose", "sky", "sage"] as Tone[])[hash(id) % 6];
 

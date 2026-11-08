@@ -1,13 +1,14 @@
 import { Stub, TripTicket } from "@/components/trip";
 import { YourTrips } from "./_components/YourTrips";
 import { ButtonLink, Meta, Text } from "@/components/ui";
+import { Logo } from "@/components/ui/Logo";
 import { cn, cta, screen, stubGrid, ticketTop, titleblock, topbar, type } from "@/components/ui/tw";
 
 export default function Home() {
   return (
     <main className={screen}>
       <div className={topbar}>
-        <Meta>Tripflow</Meta>
+        <Logo size={30} />
         <Meta className="text-muted">Group trips</Meta>
       </div>
       <div className={cn(titleblock, "mt-6")}>
@@ -15,7 +16,7 @@ export default function Home() {
         <Text as="p" variant="body-md" className="text-muted">Set the basics, send one link. Each friend adds their dates, budget and airport. No app, no sign-up.</Text>
       </div>
       <TripTicket tone="sage">
-        <div className={cn(ticketTop, type.meta)}><span>Tripflow</span><span>No account</span></div>
+        <div className={cn(ticketTop, type.meta)}><Logo size={20} cut="var(--sage)" /><span>No account</span></div>
         <Text variant="display-xxl">WHERE<br />TO?</Text>
         <Meta>The group decides</Meta>
         <Stub />

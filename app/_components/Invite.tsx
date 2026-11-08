@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { api } from "@/lib/client";
+import { Logo } from "@/components/ui/Logo";
 import { inviteMessage } from "@/lib/messages";
 import { AppPromo, AvatarRow, Stub, StubGrid, TRIP_TONES, TripTicket, tripTone } from "@/components/trip";
 import { Button, Card, Icon, IconButton, Meta, Sheet, Text, useToast } from "@/components/ui";
@@ -122,7 +123,7 @@ export function LandingScreen(ctx: Ctx) {
     <>
       <div className={topbar}>
         <Meta>{hello}</Meta>
-        <Meta className="text-muted">/t/{ctx.code}</Meta>
+        <Logo size={22} />
       </div>
       <TripTicket tone={toneOf(ctx)} vibe={firstVibe(ctx)} pattern>
         <div className={cn(ticketTop, type.meta)}><span>{t.title}</span><span>Host · {host?.name ?? "?"}</span></div>

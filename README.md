@@ -1,4 +1,6 @@
-# Elsewhere
+<p><img src="docs/logo.svg" alt="Tripflow logo" width="72"></p>
+
+# Tripflow
 
 **Plan a group trip everyone can say yes to.** One person starts a trip and sends a link. Friends open it on their phones, answer a few quick questions, and rank the places AI suggests. The group's top pick becomes the plan, with a day-by-day itinerary.
 
@@ -8,7 +10,7 @@ No app to install and no account to create.
 
 ## The problem
 
-Group trips die in the group chat. One person floats a weekend, everyone replies with different dates and budgets, and the thread goes quiet before anyone picks a place. Elsewhere turns that chat into a short, friendly flow where everyone's answers count and the group decides together.
+Group trips die in the group chat. One person floats a weekend, everyone replies with different dates and budgets, and the thread goes quiet before anyone picks a place. Tripflow turns that chat into a short, friendly flow where everyone's answers count and the group decides together.
 
 ## How it works
 

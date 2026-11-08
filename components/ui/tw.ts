@@ -49,7 +49,8 @@ export const screen = "group/screen mx-auto flex min-h-dvh w-full max-w-[430px] 
 export const screenTabsPad = "pb-[calc(var(--tab-bar)+2*var(--s-md)+8px)]";
 export const topbar = "flex min-h-11 items-center justify-between gap-2 [&>[data-meta]]:flex-1 [&>[data-meta]]:text-center";
 export const titleblock = "mt-1 mb-0.5 flex flex-col gap-1.5 [&_h1]:lowercase [&_[data-meta]]:text-muted";
-export const cta = "sticky bottom-4 z-[5] mt-auto flex flex-col gap-2 bg-background pt-3 group-data-[tabs]/screen:bottom-[calc(var(--tab-bar)+2*var(--s-md))]";
+// The page's main button sits at the end of the content (and at the bottom of the viewport on short pages), so it scrolls with the page.
+export const cta = "mt-auto flex flex-col gap-2 pt-4";
 export const row = "flex items-center gap-2";
 export const col = "flex flex-col gap-2";
 export const grid2 = "grid grid-cols-2 gap-2";
@@ -177,7 +178,7 @@ export const sheet = "fixed bottom-0 left-1/2 z-[41] flex max-h-[92dvh] w-[min(4
 export const sheetHandle = "mx-auto h-[5px] w-10 shrink-0 rounded-full bg-line";
 export const sheetHead = "flex flex-col gap-1 [&_p]:text-muted";
 
-export const toast = "fixed bottom-[calc(var(--tab-bar)+2*var(--s-md)+var(--btn-primary)+var(--s-lg))] left-1/2 z-[60] flex min-h-11 max-w-[min(398px,calc(100%-32px))] animate-toast items-center gap-3 rounded-full bg-ink py-1.5 pr-2 pl-5 font-body text-[15px] leading-[1.2] font-semibold text-white [transform:translateX(-50%)] [&_span]:whitespace-nowrap";
+export const toast = "fixed top-4 left-1/2 z-[60] flex min-h-11 max-w-[min(398px,calc(100%-32px))] animate-toast items-center gap-3 rounded-full bg-ink py-1.5 pr-2 pl-5 font-body text-[15px] leading-[1.2] font-semibold text-white [transform:translateX(-50%)] [&_span]:whitespace-nowrap";
 export const toastBtn = "min-h-11 appearance-none rounded-full border-0 bg-transparent px-3.5 font-body text-[15px] font-bold text-sage";
 
 export const tabbar = "fixed bottom-4 left-1/2 z-30 flex h-16 w-[min(398px,calc(100%-32px))] -translate-x-1/2 items-center gap-1 rounded-full bg-ink px-2 text-white";

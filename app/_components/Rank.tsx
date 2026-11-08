@@ -195,7 +195,7 @@ export function RankScreen(ctx: Ctx) {
             <ul className="mt-1.5 grid list-disc gap-1 pl-[18px]">{m.excluded.map((d) => <li key={d.id}><strong>{d.name}:</strong> {d.reasons.join("; ")}.</li>)}</ul>
           </details>
         )}
-        {/* These two live in the page flow, not the pinned bar, so they never cover the list. */}
+        {/* Extra ranking actions, in the page flow just above the main button. */}
         {(proposal || (isHost && lockedCount > 0)) && (
           <div className={cn(col, center)}>
             {proposal && <LinkButton onClick={unlock}>Change my ranking</LinkButton>}

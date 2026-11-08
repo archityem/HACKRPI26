@@ -70,7 +70,7 @@ export default function NewTrip() {
         <div className={cn(row, "justify-between")}><label htmlFor="budget" className={type.meta}>Max budget / person</label><Meta>Ceiling</Meta></div>
         <EditableAmount id="budget-amount" label="Max budget per person, in dollars. Type your own amount." size="numeral-lg" value={f.maxBudget} onChange={(n) => set({ maxBudget: n })} />
         <input id="budget" className={rangeInput} type="range" min={0} max={5000} step={50} value={Math.min(f.maxBudget, 5000)} onChange={(e) => set({ maxBudget: Number(e.target.value) })} />
-        <span className={hint13}>Slide it, or tap the number to type your own. Can go down later, never up. Flights, stay and daily spending all count.</span>
+        <span className={hint13}>Can go down later, never up. Flights, stay and daily spending all count.</span>
       </Card>
 
       <Card>

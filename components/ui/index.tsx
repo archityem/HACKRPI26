@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
+import { avatar, avatarDashed, avatarMd, avatarRing, btn, btnKind, btnSm, card, cardPress, cardTight, chip, chipGrow, chipSurface, cn, field, iconBtn, linkBtn, progress, progressBit, scrim, sheet, sheetHandle, tabbar, tabBtn, tabMeta, toast, toastBtn, toneClass, type, type TextStyle } from "./tw";
 
 // ---------- Icons (inline, bold stroke; decorative unless the parent button has a label) ----------
 const PATHS = {
@@ -35,36 +36,36 @@ export function Icon({ name, size = 20, stroke = 2.5 }: { name: IconName; size?:
 }
 
 // ---------- Text ----------
-type TextStyle = "display-xxl" | "display-xl" | "display-lg" | "display-ticket" | "display-sm" | "display-md" | "display-row" | "numeral" | "numeral-lg" | "numeral-md" | "numeral-sm" | "numeral-xs" | "numeral-xxs" | "title" | "headline" | "body-lg" | "body-md" | "label" | "meta";
+export type { TextStyle };
 export function Text({ as: Tag = "span", variant, className = "", children, ...rest }: { as?: "span" | "p" | "h1" | "h2" | "h3" | "div"; variant: TextStyle; className?: string; children: ReactNode } & React.HTMLAttributes<HTMLElement>) {
   const T = Tag as "span";
-  return <T className={`t-${variant} ${className}`.trim()} {...rest}>{children}</T>;
+  return <T className={cn(type[variant], className)} {...rest}>{children}</T>;
 }
-export const Meta = ({ children, className = "" }: { children: ReactNode; className?: string }) => <span className={`t-meta ${className}`.trim()}>{children}</span>;
+export const Meta = ({ children, className = "" }: { children: ReactNode; className?: string }) => <span data-meta="" className={cn(type.meta, className)}>{children}</span>;
 
 // ---------- Button ----------
 type Kind = "primary" | "secondary" | "soft" | "ink" | "danger";
 export function Button({ kind = "secondary", icon, small, className = "", children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { kind?: Kind; icon?: IconName; small?: boolean }) {
   return (
-    <button type="button" className={`btn btn--${kind} ${small ? "btn--sm" : ""} ${className}`.trim()} {...rest}>
+    <button type="button" className={cn(btn, btnKind[kind], small && btnSm, className)} {...rest}>
       {icon && <Icon name={icon} size={icon === "arrow" || icon === "plus" ? 20 : 18} />}{children}
     </button>
   );
 }
 export function ButtonLink({ href, kind = "secondary", icon, children }: { href: string; kind?: Kind; icon?: IconName; children: ReactNode }) {
-  return <Link href={href} className={`btn btn--${kind}`}>{icon && <Icon name={icon} />}{children}</Link>;
+  return <Link href={href} className={cn(btn, btnKind[kind])}>{icon && <Icon name={icon} />}{children}</Link>;
 }
-export const LinkButton = ({ children, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" className="link" {...p}>{children}</button>;
+export const LinkButton = ({ children, ...p }: ButtonHTMLAttributes<HTMLButtonElement>) => <button type="button" className={linkBtn} {...p}>{children}</button>;
 
 export function IconButton({ icon, label, onClick, href }: { icon: IconName; label: string; onClick?: () => void; href?: string }) {
-  if (href) return <Link href={href} className="iconbtn" aria-label={label}><Icon name={icon} /></Link>;
-  return <button type="button" className="iconbtn" aria-label={label} onClick={onClick}><Icon name={icon} /></button>;
+  if (href) return <Link href={href} className={iconBtn} aria-label={label}><Icon name={icon} /></Link>;
+  return <button type="button" className={iconBtn} aria-label={label} onClick={onClick}><Icon name={icon} /></button>;
 }
 
 // ---------- Chip ----------
 export function Chip({ selected, grow, surface, children, ...rest }: ButtonHTMLAttributes<HTMLButtonElement> & { selected?: boolean; grow?: boolean; surface?: boolean }) {
   return (
-    <button type="button" aria-pressed={selected ?? false} className={`chip ${grow ? "chip--grow" : ""} ${surface ? "chip--surface" : ""}`.trim()} {...rest}>
+    <button type="button" aria-pressed={selected ?? false} className={cn(chip, grow && chipGrow, surface && chipSurface)} {...rest}>
       {selected && <Icon name="check" size={16} stroke={3} />}{children}
     </button>
   );
@@ -73,14 +74,14 @@ export function Chip({ selected, grow, surface, children, ...rest }: ButtonHTMLA
 // ---------- Card ----------
 export type Tone = "surface" | "ink" | "sage" | "apricot" | "dusk" | "lavender" | "rose" | "butter" | "sky";
 export function Card({ tone = "surface", tight, as, className = "", children, ...rest }: { tone?: Tone; tight?: boolean; as?: "button" | "div"; className?: string; children: ReactNode } & React.HTMLAttributes<HTMLElement> & { onClick?: () => void }) {
-  const cls = `card ${tight ? "card--tight" : ""} ${className}`.trim();
+  const cls = cn(card, tight && cardTight, as === "button" && cardPress, toneClass[tone], className);
   if (as === "button") return <button type="button" data-tone={tone} className={cls} {...(rest as object)}>{children}</button>;
   return <div data-tone={tone} className={cls} {...rest}>{children}</div>;
 }
 
 // ---------- Input: a label above the value, set into a white card ----------
 export function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <label className="field"><Meta>{label}</Meta>{children}</label>;
+  return <label className={field}><Meta>{label}</Meta>{children}</label>;
 }
 
 // ---------- Avatar ----------
@@ -91,16 +92,16 @@ export function Avatar({ name, index = 0, you, ring, size }: { name: string; ind
   // "You" is ink on a white card, and white when the avatar sits on a colored ticket (ring is that color).
   const [bg, fg] = you ? (ring ? ["var(--white)", "var(--ink)"] : ["var(--ink)", "var(--white)"]) : AVATAR_TONES[index % AVATAR_TONES.length];
   return (
-    <span className={`avatar ${size === "md" ? "avatar--md" : ""}`} role="img" aria-label={you ? `${name} (you)` : name} style={{ background: bg, color: fg, ["--ring" as string]: ring }}>
+    <span className={cn(avatar, avatarRing, size === "md" && avatarMd)} role="img" aria-label={you ? `${name} (you)` : name} style={{ background: bg, color: fg, ["--ring" as string]: ring }}>
       {you ? "YOU" : initials(name)}
     </span>
   );
 }
-export const EmptySeat = () => <span className="avatar avatar--dashed avatar--md" aria-hidden="true" />;
+export const EmptySeat = () => <span data-seat="" className={cn(avatar, avatarMd, avatarDashed)} aria-hidden="true" />;
 
 // ---------- Progress ----------
 export function Progress({ total, done }: { total: number; done: number }) {
-  return <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}>{Array.from({ length: total }, (_, i) => <i key={i} data-on={i < done ? "" : undefined} />)}</div>;
+  return <div className={progress} role="progressbar" aria-valuemin={0} aria-valuemax={total} aria-valuenow={done}>{Array.from({ length: total }, (_, i) => <i key={i} className={progressBit} data-on={i < done ? "" : undefined} />)}</div>;
 }
 
 // ---------- Sheet: a bottom sheet with a scrim ----------
@@ -114,9 +115,9 @@ export function Sheet({ open, onClose, label, children }: { open: boolean; onClo
   if (!open) return null;
   return (
     <>
-      <div className="scrim" onClick={onClose} aria-hidden="true" />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={label}>
-        <div className="sheet__handle" aria-hidden="true" />
+      <div className={scrim} onClick={onClose} aria-hidden="true" />
+      <div className={sheet} role="dialog" aria-modal="true" aria-label={label}>
+        <div className={sheetHandle} aria-hidden="true" />
         {children}
       </div>
     </>
@@ -126,10 +127,10 @@ export function Sheet({ open, onClose, label, children }: { open: boolean; onClo
 // ---------- Tab bar ----------
 export function TabBar({ tabs, current }: { tabs: { id: string; label: string; icon: IconName; onClick: () => void }[]; current: string }) {
   return (
-    <nav className="tabbar" aria-label="Trip">
+    <nav className={tabbar} aria-label="Trip">
       {tabs.map((t) => (
-        <button key={t.id} type="button" aria-current={t.id === current ? "page" : undefined} onClick={t.onClick}>
-          <Icon name={t.icon} size={20} stroke={2.4} /><Meta>{t.label}</Meta>
+        <button key={t.id} type="button" className={tabBtn} aria-current={t.id === current ? "page" : undefined} onClick={t.onClick}>
+          <Icon name={t.icon} size={20} stroke={2.4} /><Meta className={tabMeta}>{t.label}</Meta>
         </button>
       ))}
     </nav>
@@ -154,9 +155,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div aria-live="polite" role="status">
         {t && (
-          <div className="toast" key={t.n}>
+          <div className={toast} key={t.n}>
             <span>{t.msg}</span>
-            {t.undo && <button type="button" onClick={() => { t.undo?.(); setT(null); }}>Undo</button>}
+            {t.undo && <button type="button" className={toastBtn} onClick={() => { t.undo?.(); setT(null); }}>Undo</button>}
           </div>
         )}
       </div>
@@ -168,11 +169,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 export function Confetti() {
   const colors = ["var(--sage)", "var(--apricot)", "var(--dusk)", "var(--lavender)", "var(--rose)", "var(--butter)", "var(--sky)"];
   return (
-    <div className="confetti" aria-hidden="true">
+    <div className="pointer-events-none fixed top-[30%] left-1/2 z-[70] h-0 w-0 motion-reduce:hidden" aria-hidden="true">
       {Array.from({ length: 36 }, (_, i) => {
         const a = (i / 36) * Math.PI * 2;
         const d = 120 + ((i * 37) % 140);
-        return <i key={i} style={{ background: colors[i % colors.length], ["--dx" as string]: `${Math.cos(a) * d}px`, ["--dy" as string]: `${Math.sin(a) * d + 80}px`, ["--rot" as string]: `${(i * 53) % 360}deg` }} />;
+        return <i key={i} className="absolute h-3.5 w-2 animate-confetti rounded-[2px]" style={{ background: colors[i % colors.length], ["--dx" as string]: `${Math.cos(a) * d}px`, ["--dy" as string]: `${Math.sin(a) * d + 80}px`, ["--rot" as string]: `${(i * 53) % 360}deg` }} />;
       })}
     </div>
   );

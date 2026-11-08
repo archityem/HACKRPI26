@@ -4,6 +4,7 @@ import { PREFS, airportsFor, api, dayDiff, money, range, type Snapshot } from "@
 import type { Deal } from "@/lib/types";
 import { QuestionCard, tripTone } from "@/components/trip";
 import { Button, Chip, Field, Icon, Meta, Progress, Text, useToast } from "@/components/ui";
+import { chips, cn, col, cta, dates, err, hint13, qFoot, rangeInput, row, ticket, ticketCompact, titleblock, topbar, toneClass, type } from "@/components/ui/tw";
 import { EditableAmount } from "./EditableAmount";
 import { InstallSheet } from "./Invite";
 import { prefShort, useInstall, windowLabel, type Ctx } from "./common";
@@ -93,21 +94,21 @@ export function AnswersScreen(ctx: Ctx) {
 
   return (
     <>
-      <div className="topbar">
+      <div className={topbar}>
         <Meta>{me?.ready ? "Your answers" : "On the web · no account"}</Meta>
         <Button kind="secondary" icon="phone" onClick={install}>Get the app</Button>
       </div>
       <InstallSheet open={help} onClose={closeHelp} />
 
-      <div className="ticket ticket--compact" data-tone={tripTone(ctx.code, t.tone)}>
-        <div className="col" style={{ gap: 2 }}>
+      <div className={cn(ticket, ticketCompact, toneClass[tripTone(ctx.code, t.tone)])} data-tone={tripTone(ctx.code, t.tone)}>
+        <div className={cn(col, "gap-0.5")}>
           <Meta>{t.title}</Meta>
           <Text variant="display-md">WHERE TO?</Text>
         </div>
-        <div className="col t-meta" style={{ alignItems: "flex-end", gap: 2 }}><span>{windowLabel(t.windowStart, t.windowEnd)}</span><span>${t.maxBudget.toLocaleString("en-US")} cap</span></div>
+        <div className={cn(col, type.meta, "items-end gap-0.5")}><span>{windowLabel(t.windowStart, t.windowEnd)}</span><span>${t.maxBudget.toLocaleString("en-US")} cap</span></div>
       </div>
 
-      <div className="titleblock" style={{ marginTop: 4 }}>
+      <div className={titleblock}>
         <Text as="h1" variant="display-lg">{me?.ready ? "your answers" : "you in?"}</Text>
         <Progress total={STEPS.length} done={step + 1} />
         <Meta>{Math.min(step + 1, STEPS.length)} of {STEPS.length} · takes 30 seconds</Meta>
@@ -124,41 +125,41 @@ export function AnswersScreen(ctx: Ctx) {
 
       {/* 02 budget */}
       <QuestionCard number={num(1)} label={STEPS[1].label} value={values[1]} state={state(1)} tone="dusk" onEdit={() => edit(1)}>
-        <label htmlFor="mybudget" className="t-meta">{STEPS[1].label}</label>
+        <label htmlFor="mybudget" className={type.meta}>{STEPS[1].label}</label>
         <EditableAmount id="mybudget-amount" label="Your max budget in dollars. Type your own amount." value={d.max} onChange={(n) => set({ max: n })} />
-        <input id="mybudget" type="range" min={0} max={Math.min(5000, cap)} step={cap > 400 ? 25 : 5} value={Math.min(d.max, 5000, cap)} onChange={(e) => set({ max: Number(e.target.value) })} />
-        <div className="q__foot t-meta"><span>Private</span><span>Trip cap {money(cap)}</span></div>
-        <span style={{ fontSize: 13, lineHeight: 1.35 }}>The group only sees a range, never your number. Flights, {t.nights} nights and daily spending all count.</span>
+        <input id="mybudget" className={rangeInput} type="range" min={0} max={Math.min(5000, cap)} step={cap > 400 ? 25 : 5} value={Math.min(d.max, 5000, cap)} onChange={(e) => set({ max: Number(e.target.value) })} />
+        <div className={cn(qFoot, type.meta)}><span>Private</span><span>Trip cap {money(cap)}</span></div>
+        <span className={hint13}>The group only sees a range, never your number. Flights, {t.nights} nights and daily spending all count.</span>
       </QuestionCard>
 
       {/* 03 dates */}
       <QuestionCard number={num(2)} label={STEPS[2].label} value={values[2]} state={state(2)} onEdit={() => edit(2)}>
         <Meta>{num(2)} · {STEPS[2].label}</Meta>
-        <div className="chips"><Chip selected={d.start === t.windowStart && d.end === t.windowEnd} onClick={() => set({ start: t.windowStart, end: t.windowEnd })}>Free the whole window</Chip></div>
-        <div className="dates">
+        <div className={chips}><Chip selected={d.start === t.windowStart && d.end === t.windowEnd} onClick={() => set({ start: t.windowStart, end: t.windowEnd })}>Free the whole window</Chip></div>
+        <div className={dates}>
           <Field label="Free from"><input type="date" min={t.windowStart} max={t.windowEnd} value={d.start} onChange={(e) => set({ start: e.target.value })} /></Field>
           <Field label="Back by"><input type="date" min={t.windowStart} max={t.windowEnd} value={d.end} onChange={(e) => set({ end: e.target.value })} /></Field>
         </div>
-        <span className="t-body-md muted">Window is {range(t.windowStart, t.windowEnd)}. Pick days you could go, not a booking.</span>
+        <Text variant="body-md" className="text-muted">Window is {range(t.windowStart, t.windowEnd)}. Pick days you could go, not a booking.</Text>
       </QuestionCard>
 
       {/* 04 passport + hard nos */}
       <QuestionCard number={num(3)} label={STEPS[3].label} value={values[3]} state={state(3)} onEdit={() => edit(3)}>
         <Meta>{num(3)} · {STEPS[3].label}</Meta>
-        <div className="chips">
+        <div className={chips}>
           <Chip grow selected={d.passport} onClick={() => set({ passport: true })}>Yes, passport ready</Chip>
           <Chip grow selected={!d.passport} onClick={() => set({ passport: false })}>No passport</Chip>
         </div>
-        <Meta className="muted">Any hard nos?</Meta>
-        <div className="chips">{HARD_NOS.map(([v, tx]) => (
+        <Meta className="text-muted">Any hard nos?</Meta>
+        <div className={chips}>{HARD_NOS.map(([v, tx]) => (
           <Chip key={v} selected={d.deals.includes(v)} onClick={() => set({ deals: d.deals.includes(v) ? d.deals.filter((x) => x !== v) : [...d.deals, v] })}>{tx}</Chip>
         ))}</div>
       </QuestionCard>
 
       {/* 05 vibe */}
       <QuestionCard number={num(4)} label={STEPS[4].label} value={values[4]} state={state(4)} onEdit={() => edit(4)}>
-        <div className="row row--between"><Meta>{num(4)} · {STEPS[4].label}</Meta><Meta className="muted">Pick up to 3 · {d.prefs.length}/3</Meta></div>
-        <div className="chips">{PREFS.map(([v]) => (
+        <div className={cn(row, "justify-between")}><Meta>{num(4)} · {STEPS[4].label}</Meta><Meta className="text-muted">Pick up to 3 · {d.prefs.length}/3</Meta></div>
+        <div className={chips}>{PREFS.map(([v]) => (
           <Chip key={v} selected={d.prefs.includes(v)} onClick={() => {
             if (d.prefs.includes(v)) set({ prefs: d.prefs.filter((x) => x !== v) });
             else if (d.prefs.length < 3) set({ prefs: [...d.prefs, v] });
@@ -167,8 +168,8 @@ export function AnswersScreen(ctx: Ctx) {
         ))}</div>
       </QuestionCard>
 
-      <div className="err" role="alert">{error}</div>
-      <div className="cta">
+      <div className={err} role="alert">{error}</div>
+      <div className={cta}>
         <Button kind="primary" disabled={saving} onClick={next}>{primary}{primary !== "Saving…" && <Icon name="arrow" />}</Button>
         {me?.ready && <Button kind="secondary" onClick={() => ctx.go("vibe")}>Back to the trip</Button>}
       </div>

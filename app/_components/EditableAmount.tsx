@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { cn, type } from "@/components/ui/tw";
 
 /**
  * The big budget number, which is also the input: hover or focus it and type your own whole-dollar amount.
@@ -13,10 +14,11 @@ export function EditableAmount({ id, value, onChange, label, size = "numeral" }:
   // While typing show exactly what was typed (so an empty box stays empty); otherwise mirror the value with commas.
   const shown = focused ? text : value > 0 ? value.toLocaleString("en-US") : "0";
   return (
-    <label className={`amount t-${size}`} htmlFor={id}>
+    <label className={cn(type[size], "flex min-h-11 w-fit max-w-full cursor-text items-baseline")} htmlFor={id}>
       <span aria-hidden="true">$</span>
       <input
         id={id} aria-label={label} inputMode="numeric" pattern="[0-9]*" autoComplete="off" spellCheck={false}
+        className="m-0 max-w-full min-w-[1ch] border-0 bg-transparent p-0 font-[inherit] tracking-[inherit] text-inherit outline-none [font-stretch:inherit]"
         value={shown} size={Math.max(1, shown.length)}
         onFocus={(e) => { setFocused(true); setText(value > 0 ? String(value) : ""); e.currentTarget.select(); }}
         onBlur={() => setFocused(false)}

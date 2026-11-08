@@ -5,7 +5,8 @@ import { buildIcs } from "@/lib/ics";
 import { LODGING } from "@/lib/lodging";
 import { itineraryText } from "@/lib/messages";
 import { placeTone, AlertCard, AvatarRow, BoardingPass, DayTabs, DecisionCard, StatTile, Stub, TripTicket } from "@/components/trip";
-import { Button, Card, Confetti, Field, Icon, IconButton, LinkButton, Meta, Sheet, Text, useToast } from "@/components/ui";
+import { Button, Card, Chip, Confetti, Field, Icon, IconButton, LinkButton, Meta, Sheet, Text, useToast } from "@/components/ui";
+import { center, chips, cn, col, cta, err, grid2, iconSpacer, optRow, optText, pill, pillLocked, pillPending, row, sheetHead, ticketName, ticketTop, titleblock, topbar } from "@/components/ui/tw";
 import { clock, mmdd, shareOrCopy, tripLink, weekday, type Ctx } from "./common";
 
 const DAY = 86_400_000;
@@ -42,17 +43,17 @@ export function PlanScreen(ctx: Ctx) {
   if (!d || !m.start || !m.tripEnd) {
     return (
       <>
-        <div className="topbar">
+        <div className={topbar}>
           <IconButton icon="back" label="Back to ranking" onClick={() => ctx.go("rank")} />
           <Meta>Trip plan</Meta>
-          <span className="iconbtn--spacer" />
+          <span className={iconSpacer} />
         </div>
-        <div className="titleblock"><Text as="h1" variant="display-lg">no pick yet</Text><Meta>The top-ranked place lands here</Meta></div>
+        <div className={titleblock}><Text as="h1" variant="display-lg">no pick yet</Text><Meta>The top-ranked place lands here</Meta></div>
         <Card>
-          <span className="t-label">Rank first, then it’s happening.</span>
-          <span className="t-body-md muted">When everyone locks in their ranking, the group’s #1 becomes the plan. The host can also close the ranking early.</span>
+          <Text variant="label">Rank first, then it’s happening.</Text>
+          <Text variant="body-md" className="text-muted">When everyone locks in their ranking, the group’s #1 becomes the plan. The host can also close the ranking early.</Text>
         </Card>
-        <div className="cta"><Button kind="primary" onClick={() => ctx.go("rank")}>Back to ranking<Icon name="arrow" /></Button></div>
+        <div className={cta}><Button kind="primary" onClick={() => ctx.go("rank")}>Back to ranking<Icon name="arrow" /></Button></div>
       </>
     );
   }
@@ -124,23 +125,23 @@ export function PlanScreen(ctx: Ctx) {
 
   return (
     <>
-      <div className="topbar">
+      <div className={topbar}>
         <IconButton icon="back" label="Back to ranking" onClick={() => ctx.go("rank")} />
         <Meta>Trip plan</Meta>
         <IconButton icon="share" label="Share the plan" onClick={share} />
       </div>
 
       <TripTicket tone={tone}>
-        <div className="ticket__top">
+        <div className={ticketTop}>
           <Meta>{t.title}</Meta>
           {planning
-            ? <span className="pill pill--locked stamp"><Icon name="lock" size={12} stroke={3} />Locked · {ready.length} going</span>
-            : <span className="pill pill--pending">{approvals.length} of {ready.length} in</span>}
+            ? <span className={cn(pill, pillLocked, "animate-stamp")}><Icon name="lock" size={12} stroke={3} />Locked · {ready.length} going</span>
+            : <span className={cn(pill, pillPending)}>{approvals.length} of {ready.length} in</span>}
         </div>
-        <Text variant="display-ticket" className="ticket__name">{d.name.toUpperCase()}</Text>
+        <Text variant="display-ticket" className={ticketName}>{d.name.toUpperCase()}</Text>
         <Text variant="numeral-sm">{mmdd(m.start)} → {mmdd(m.tripEnd)}</Text>
         <Stub />
-        <div className="row row--between">
+        <div className={cn(row, "justify-between")}>
           <AvatarRow ring={`var(--${tone})`} names={ready.map((x) => ({ id: x.id, name: x.name }))} meId={me?.id} />
           <Meta>{t.nights} nights</Meta>
         </div>
@@ -149,21 +150,21 @@ export function PlanScreen(ctx: Ctx) {
 
       {!planning && <AlertCard meta="Almost there" text={ready.length === approvals.length ? "Everyone’s in." : `${ready.length - approvals.length} still to say yes`} />}
 
-      <div className="grid2">
+      <div className={grid2}>
         <DecisionCard meta="Lodging · vote" title={leader && leader.n ? leader.name : `${LODGING.length} stays`} sub={`${votedCount} of ${ready.length} voted`} onOpen={() => setStay(true)} />
         <StatTile tone="dusk" label="Est. per person" value={mine ? money(mine.total) : money(m.readyCount ? d.groupTotal / m.readyCount : 0)} sub="Flights + stay" size="md" />
       </div>
 
-      <div className="col" style={{ marginTop: 2 }}>
-        <Meta className="muted">Rough itinerary</Meta>
+      <div className={cn(col, "mt-0.5")}>
+        <Meta className="text-muted">Rough itinerary</Meta>
         <DayTabs count={nightsCount} selected={day} onSelect={setDay} />
       </div>
 
       {rows.length === 0 && (
         <Card>
           {snap.ai.itinerary === "generating" && !it
-            ? <><span className="t-label">Writing your itinerary…</span><span className="t-body-md muted">This usually takes 10–20 seconds, and this page updates by itself.</span></>
-            : <><span className="t-label">Nothing planned for {weekday(date)} yet.</span><span className="t-body-md muted">{snap.ai.itinerary === "off" ? "Add your own stops, or turn on the AI key for a drafted itinerary." : snap.ai.itinerary === "failed" ? "The AI service is overloaded. Your plan is safe, and you can add your own stops." : "Add a stop to get it started."}</span>{snap.ai.itinerary === "failed" && me && <Button kind="soft" onClick={retry}>Try again</Button>}</>}
+            ? <><Text variant="label">Writing your itinerary…</Text><Text variant="body-md" className="text-muted">This usually takes 10–20 seconds, and this page updates by itself.</Text></>
+            : <><Text variant="label">Nothing planned for {weekday(date)} yet.</Text><Text variant="body-md" className="text-muted">{snap.ai.itinerary === "off" ? "Add your own stops, or turn on the AI key for a drafted itinerary." : snap.ai.itinerary === "failed" ? "The AI service is overloaded. Your plan is safe, and you can add your own stops." : "Add a stop to get it started."}</Text>{snap.ai.itinerary === "failed" && me && <Button kind="soft" onClick={retry}>Try again</Button>}</>}
         </Card>
       )}
       {rows.map((r) => (
@@ -172,16 +173,16 @@ export function PlanScreen(ctx: Ctx) {
 
       {it && it.tips.length > 0 && (
         <Card>
-          <Meta className="muted">Good to know</Meta>
-          <span className="t-body-md">{it.tips.join(" · ")}</span>
-          <Meta className="muted">AI drafted · check hours and prices · nothing is booked</Meta>
+          <Meta className="text-muted">Good to know</Meta>
+          <Text variant="body-md">{it.tips.join(" · ")}</Text>
+          <Meta className="text-muted">AI drafted · check hours and prices · nothing is booked</Meta>
         </Card>
       )}
 
       {planning && (
         <Card>
-          <Meta className="muted">Take it with you</Meta>
-          <div className="chips">
+          <Meta className="text-muted">Take it with you</Meta>
+          <div className={chips}>
             <Button kind="soft" onClick={addToCalendar}>Add to calendar</Button>
             {it && snap.ai.itinerary === "ready" && <Button kind="soft" onClick={copyItinerary}>Copy itinerary</Button>}
           </div>
@@ -190,18 +191,16 @@ export function PlanScreen(ctx: Ctx) {
 
       {planning && (
         <Card>
-          <Meta className="muted">Next up · on this device</Meta>
-          <div className="chips">{CHECKS.map(([id, label]) => (
-            <button key={id} type="button" className="chip" aria-pressed={checks.includes(id)} onClick={() => setChecks(checks.includes(id) ? checks.filter((c) => c !== id) : [...checks, id])}>
-              {checks.includes(id) && <Icon name="check" size={16} stroke={3} />}{label}
-            </button>
+          <Meta className="text-muted">Next up · on this device</Meta>
+          <div className={chips}>{CHECKS.map(([id, label]) => (
+            <Chip key={id} selected={checks.includes(id)} onClick={() => setChecks(checks.includes(id) ? checks.filter((c) => c !== id) : [...checks, id])}>{label}</Chip>
           ))}</div>
         </Card>
       )}
 
-      <div className="center" style={{ marginTop: 4 }}><LinkButton onClick={reconsider}>Back to ranking</LinkButton></div>
+      <div className={cn(center, "mt-1")}><LinkButton onClick={reconsider}>Back to ranking</LinkButton></div>
 
-      <div className="cta">
+      <div className={cta}>
         {planning ? (
           <Button kind="primary" icon="plus" onClick={() => setAdd(true)}>Add to the plan</Button>
         ) : iAmIn ? (
@@ -212,21 +211,21 @@ export function PlanScreen(ctx: Ctx) {
       </div>
 
       <Sheet open={stay} onClose={() => setStay(false)} label="Where should we stay?">
-        <div className="sheet__head"><Text as="h2" variant="display-md">where do we stay?</Text><p>Pick one. The most votes wins. Prices are per person, per night.</p></div>
+        <div className={sheetHead}><Text as="h2" variant="display-md">where do we stay?</Text><p>Pick one. The most votes wins. Prices are per person, per night.</p></div>
         {tally.map((o) => (
-          <button key={o.id} type="button" className="optrow" aria-pressed={me ? lodgingVotes[me.id] === o.id : false} onClick={() => vote(o.id)}>
-            <span className="optrow__text"><span className="t-label">{o.name}</span><Meta>{o.note}</Meta></span>
-            <span className="col" style={{ alignItems: "flex-end", gap: 2 }}><Text variant="numeral-xxs" className="">~{money(d.night * o.mult)}</Text><Meta>{o.n} {o.n === 1 ? "vote" : "votes"}</Meta></span>
+          <button key={o.id} type="button" className={optRow} aria-pressed={me ? lodgingVotes[me.id] === o.id : false} onClick={() => vote(o.id)}>
+            <span className={optText}><Text variant="label">{o.name}</Text><Meta>{o.note}</Meta></span>
+            <span className={cn(col, "items-end gap-0.5")}><Text variant="numeral-xxs">~{money(d.night * o.mult)}</Text><Meta>{o.n} {o.n === 1 ? "vote" : "votes"}</Meta></span>
           </button>
         ))}
         <Button kind="primary" onClick={() => setStay(false)}>Done</Button>
       </Sheet>
 
       <Sheet open={add} onClose={() => setAdd(false)} label="Add to the plan">
-        <div className="sheet__head"><Text as="h2" variant="display-md">add to day {day + 1}</Text><p>{weekday(date)}, {short(date)}. Everyone sees it.</p></div>
+        <div className={sheetHead}><Text as="h2" variant="display-md">add to day {day + 1}</Text><p>{weekday(date)}, {short(date)}. Everyone sees it.</p></div>
         <Field label="What’s the stop?"><input value={title} maxLength={60} autoFocus placeholder="Dinner in the old town" onChange={(e) => { setTitle(e.target.value); setFormErr(""); }} /></Field>
         <Field label="Around what time?"><input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></Field>
-        <div className="err" role="alert">{formErr}</div>
+        <div className={err} role="alert">{formErr}</div>
         <Button kind="primary" onClick={submitItem}>Add to the plan</Button>
       </Sheet>
     </>

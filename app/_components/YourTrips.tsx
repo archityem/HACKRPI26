@@ -2,7 +2,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { listTrips, type RememberedTrip } from "@/lib/client";
-import { Card, Meta } from "@/components/ui";
+import { Card, Meta, Text } from "@/components/ui";
+import { cn, col, row } from "@/components/ui/tw";
 
 /** Trips this device has opened. Stored on the device only. */
 export function YourTrips() {
@@ -10,11 +11,11 @@ export function YourTrips() {
   useEffect(() => setTrips(listTrips()), []);
   if (!trips.length) return null;
   return (
-    <section aria-label="Your trips" className="col" style={{ marginTop: 8 }}>
-      <Meta className="muted">Your trips on this device</Meta>
+    <section aria-label="Your trips" className={cn(col, "mt-2")}>
+      <Meta className="text-muted">Your trips on this device</Meta>
       {trips.map((t) => (
-        <Link key={t.code} href={`/t/${t.code}`} style={{ textDecoration: "none" }}>
-          <Card tight><div className="row row--between"><span className="t-label">{t.title}</span><Meta className="muted">{t.code}</Meta></div></Card>
+        <Link key={t.code} href={`/t/${t.code}`} className="no-underline">
+          <Card tight><div className={cn(row, "justify-between")}><Text variant="label">{t.title}</Text><Meta className="text-muted">{t.code}</Meta></div></Card>
         </Link>
       ))}
     </section>

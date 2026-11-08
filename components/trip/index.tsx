@@ -1,6 +1,7 @@
 "use client";
 import type { ReactNode } from "react";
 import { Avatar, Button, Card, EmptySeat, Icon, Meta, Text, useCountUp, type Tone } from "../ui";
+import { avatars, avatarsGap, bars, barsFill, barsTrack, cn, col, crew, crewText, dayTab, dayTabs, dot, dots, dotsHl, iconBtn, pass, passBody, passStub, pill, pillVerdict, promo, promoIcon, promoSub, promoText, q, qActive, qCheck, qDone, qText, qUpcoming, row, stat, statValue, stub, stubCell, stubGrid, stubLine, stubLineSm, stubSm, stubValue, ticket, ticketName, ticketPattern, toneClass, type, why } from "../ui/tw";
 import type { Verdict } from "@/lib/rank";
 
 // ---------- Trip colors ----------
@@ -14,7 +15,9 @@ export const placeTone = (id: string): Tone => (["apricot", "lavender", "butter"
 
 // ---------- TripTicket ----------
 /** The notched stub line between a ticket's headline and its details. */
-export const Stub = () => <div className="stub" aria-hidden="true"><i /></div>;
+export const Stub = ({ small = false }: { small?: boolean }) => (
+  <div className={cn(stub, small && stubSm)} aria-hidden="true"><i className={cn(stubLine, small && stubLineSm)} /></div>
+);
 
 /**
  * A quiet line drawing in the ticket's corner, chosen by the trip's first vibe.
@@ -31,15 +34,15 @@ const PATTERNS: Record<string, ReactNode> = {
 };
 export function TicketPattern({ vibe }: { vibe?: string }) {
   return (
-    <svg className="ticket__pattern" viewBox="0 0 220 170" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg className={ticketPattern} viewBox="0 0 220 170" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {PATTERNS[vibe && PATTERNS[vibe] ? vibe : "none"]}
     </svg>
   );
 }
 
-export function TripTicket({ tone, small, vibe, pattern, children }: { tone: Tone; small?: boolean; vibe?: string; pattern?: boolean; children: ReactNode }) {
+export function TripTicket({ tone, vibe, pattern, children }: { tone: Tone; vibe?: string; pattern?: boolean; children: ReactNode }) {
   return (
-    <section data-tone={tone} className={`ticket ${small ? "ticket--sm" : ""}`}>
+    <section data-tone={tone} className={cn(ticket, toneClass[tone])}>
       {pattern && <TicketPattern vibe={vibe} />}
       {children}
     </section>
@@ -48,15 +51,15 @@ export function TripTicket({ tone, small, vibe, pattern, children }: { tone: Ton
 
 export function StubGrid({ items }: { items: [string, string][] }) {
   return (
-    <div className="stubgrid">
-      {items.map(([k, v]) => <div key={k}><Meta>{k}</Meta><Text variant="numeral-xs">{v}</Text></div>)}
+    <div className={stubGrid}>
+      {items.map(([k, v]) => <div key={k} className={stubCell}><Meta>{k}</Meta><Text variant="numeral-xs" className={stubValue}>{v}</Text></div>)}
     </div>
   );
 }
 
 export function AvatarRow({ names, meId, seats = 0, ring, gap }: { names: { id: string; name: string }[]; meId?: string; seats?: number; ring?: string; gap?: boolean }) {
   return (
-    <div className={`avatars ${gap ? "avatars--gap" : ""}`}>
+    <div className={gap ? avatarsGap : avatars}>
       {names.map((m, i) => <Avatar key={m.id} name={m.name} index={i} you={m.id === meId} ring={ring} size={gap ? "md" : undefined} />)}
       {Array.from({ length: seats }, (_, i) => <EmptySeat key={i} />)}
     </div>
@@ -66,7 +69,7 @@ export function AvatarRow({ names, meId, seats = 0, ring, gap }: { names: { id: 
 // ---------- AI verdict ----------
 export function AIVerdictPill({ verdict, month, source }: { verdict: Verdict; month?: string; source: "AI" | "Est." }) {
   const text = verdict === "Pricey" ? `Pricey${month ? ` for ${month}` : ""}` : verdict;
-  return <span className="pill pill--verdict">{source} · {text}</span>;
+  return <span className={cn(pill, pillVerdict)}>{source} · {text}</span>;
 }
 export const verdictText = (v: Verdict, month?: string) => (v === "Pricey" ? `Pricey${month ? ` for ${month}` : ""}` : v);
 
@@ -76,29 +79,30 @@ export function QuestionCard({ state, tone = "surface", label, value, onEdit, ch
 }) {
   if (state === "done") {
     return (
-      <div className="q q--done">
-        <div className="row" style={{ gap: 12, minWidth: 0, flex: 1 }}>
-          <span className="q__check"><Icon name="check" size={16} stroke={3} /></span>
-          <span className="q__text"><Meta>{label}</Meta><span className="t-label">{value}</span></span>
+      <div className={cn(q, qDone)}>
+        <div className={cn(row, "min-w-0 flex-1 gap-3")}>
+          <span className={qCheck}><Icon name="check" size={16} stroke={3} /></span>
+          <span className={qText}><Meta>{label}</Meta><span className={cn(type.label, "truncate text-[17px]")}>{value}</span></span>
         </div>
         <Button kind="soft" onClick={onEdit} aria-label={`Edit ${label}`}>Edit</Button>
       </div>
     );
   }
   if (state === "upcoming") {
-    return <div className="q q--upcoming"><Meta>{number} · {label}</Meta></div>;
+    return <div className={cn(q, qUpcoming)}><Meta>{number} · {label}</Meta></div>;
   }
-  return <div className="q q--active" data-tone={tone}>{children}</div>;
+  return <div className={cn(q, qActive, toneClass[tone])} data-tone={tone}>{children}</div>;
 }
 
 // ---------- Pulse tiles ----------
 export function StatTile({ label, value, sub, tone = "surface", size = "sm" }: { label: string; value: string; sub?: string; tone?: Tone; size?: "sm" | "md" | "lg" }) {
   const cls = size === "lg" ? "numeral-lg" : size === "md" ? "numeral-md" : "numeral-sm";
+  const quiet = tone !== "dusk" && tone !== "sage" && tone !== "lavender";
   return (
-    <div className="stat" data-tone={tone}>
-      <Meta>{label}</Meta>
-      <Text variant={cls} className="stat__value">{value}</Text>
-      {sub && <Meta>{sub}</Meta>}
+    <div className={cn(stat, toneClass[tone])} data-tone={tone}>
+      <Meta className={quiet ? "text-muted" : undefined}>{label}</Meta>
+      <Text variant={cls} className={statValue}>{value}</Text>
+      {sub && <Meta className={quiet ? "text-muted" : undefined}>{sub}</Meta>}
     </div>
   );
 }
@@ -107,9 +111,9 @@ export function StatTile({ label, value, sub, tone = "surface", size = "sm" }: {
 export function DateDots({ days, best, label }: { days: ("all" | "some" | "none")[]; best?: [number, number] | null; label: string }) {
   const n = days.length || 1;
   return (
-    <div className="dots" role="img" aria-label={label}>
-      {best && <span className="dots__hl" style={{ left: `${(best[0] / n) * 100}%`, width: `${((best[1] - best[0] + 1) / n) * 100}%` }} />}
-      {days.map((d, i) => <span key={i} className="dots__dot" data-n={d} />)}
+    <div className={dots} role="img" aria-label={label}>
+      {best && <span className={dotsHl} style={{ left: `${(best[0] / n) * 100}%`, width: `${((best[1] - best[0] + 1) / n) * 100}%` }} />}
+      {days.map((d, i) => <span key={i} className={cn(dot, d === "some" && "bg-muted", d === "all" && "bg-ink")} />)}
     </div>
   );
 }
@@ -117,12 +121,12 @@ export function DateDots({ days, best, label }: { days: ("all" | "some" | "none"
 export function VibeBars({ rows }: { rows: { label: string; count: number }[] }) {
   const max = Math.max(1, ...rows.map((r) => r.count));
   return (
-    <div className="bars">
+    <div className={bars}>
       {rows.map((r) => (
-        <div key={r.label} style={{ display: "contents" }}>
-          <span className="t-label">{r.label}</span>
-          <span className="bars__track"><i style={{ width: `${(r.count / max) * 100}%` }} /></span>
-          <span className="t-meta">{r.count}</span>
+        <div key={r.label} className="contents">
+          <span className={cn(type.label, "truncate")}>{r.label}</span>
+          <span className={barsTrack}><i className={barsFill} style={{ width: `${(r.count / max) * 100}%` }} /></span>
+          <span className={cn(type.meta, "text-right")}>{r.count}</span>
         </div>
       ))}
     </div>
@@ -131,9 +135,9 @@ export function VibeBars({ rows }: { rows: { label: string; count: number }[] })
 
 export function AlertCard({ meta, text, action, onAction }: { meta: string; text: string; action?: string; onAction?: () => void }) {
   return (
-    <Card tone="apricot" tight className="" as="div">
-      <div className="row row--between">
-        <span className="col" style={{ gap: 2 }}><Meta>{meta}</Meta><span className="t-label">{text}</span></span>
+    <Card tone="apricot" tight as="div">
+      <div className={cn(row, "justify-between")}>
+        <span className={cn(col, "gap-0.5")}><Meta>{meta}</Meta><Text variant="label">{text}</Text></span>
         {action && <Button kind="ink" onClick={onAction}>{action}</Button>}
       </div>
     </Card>
@@ -142,9 +146,9 @@ export function AlertCard({ meta, text, action, onAction }: { meta: string; text
 
 export function CrewRow({ name, index, you, host, meta, right }: { name: string; index: number; you?: boolean; host?: boolean; meta: string; right?: ReactNode }) {
   return (
-    <div className="crew">
+    <div className={crew}>
       <Avatar name={name} index={index} you={you} size="md" />
-      <span className="crew__text"><span className="t-label">{name}{host ? " · host" : ""}</span><Meta>{meta}</Meta></span>
+      <span className={crewText}><Text variant="label">{name}{host ? " · host" : ""}</Text><Meta>{meta}</Meta></span>
       {right}
     </div>
   );
@@ -160,23 +164,23 @@ export function EstimateCard({ e, dates, source, month }: { e: Estimate; dates: 
   const per = useCountUp(e.perPerson);
   const total = useCountUp(e.groupTotal);
   return (
-    <Card tone="lavender" className="stamp-in">
-      <div className="row row--between">
+    <Card tone="lavender">
+      <div className={cn(row, "justify-between")}>
         <Meta>{source === "gemini" ? "AI estimate" : "Sample estimate"}</Meta>
         <AIVerdictPill verdict={e.verdict} month={month} source={source === "gemini" ? "AI" : "Est."} />
       </div>
-      <Text variant="display-lg" className="ticket__name">{e.name.toUpperCase()}</Text>
+      <Text variant="display-lg" className={ticketName}>{e.name.toUpperCase()}</Text>
       <Meta>{dates} · {e.nights} nights · from {e.origins.join(" + ")}</Meta>
-      <div className="row row--between" style={{ alignItems: "flex-end", marginTop: 4 }}>
-        <div className="col" style={{ gap: 2 }}><Meta>Per person</Meta><Text variant="numeral-md">${per.toLocaleString("en-US")}</Text></div>
-        <div className="col" style={{ gap: 2, alignItems: "flex-end" }}><Meta>Group of {e.travelers}</Meta><Text variant="numeral-xs">${total.toLocaleString("en-US")} total</Text></div>
+      <div className={cn(row, "mt-1 items-end justify-between")}>
+        <div className={cn(col, "gap-0.5")}><Meta>Per person</Meta><Text variant="numeral-md">${per.toLocaleString("en-US")}</Text></div>
+        <div className={cn(col, "items-end gap-0.5")}><Meta>Group of {e.travelers}</Meta><Text variant="numeral-xs">${total.toLocaleString("en-US")} total</Text></div>
       </div>
-      <div className="grid2" style={{ gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
+      <div className="grid grid-cols-3 gap-1.5">
         {([["Flights", e.flights], ["Stay", e.stay], ["Food + fun", e.food]] as const).map(([k, v]) => (
-          <div key={k} className="why" style={{ borderRadius: 14, padding: "8px 10px" }}><Meta>{k}</Meta><Text variant="numeral-xxs" className="">~${v}</Text></div>
+          <div key={k} className={cn(why, "rounded-[14px] px-2.5 py-2")}><Meta>{k}</Meta><Text variant="numeral-xxs">~${v}</Text></div>
         ))}
       </div>
-      <span style={{ fontSize: 14, lineHeight: 1.35 }}>
+      <span className="text-[14px] leading-[1.35]">
         {e.over.length ? `Over ${e.over.join(" and ")}’s budget. ` : "Fits everyone’s budget. "}{e.reason}
       </span>
     </Card>
@@ -186,9 +190,9 @@ export function EstimateCard({ e, dates, source, month }: { e: Estimate; dates: 
 // ---------- App promo ----------
 export function AppPromo({ onGet }: { onGet: () => void }) {
   return (
-    <Card className="promo">
-      <span className="promo__icon"><Icon name="phone" size={22} stroke={2.2} /></span>
-      <span className="promo__text"><span className="t-label">Rather use the app?</span><span>Your answers come with you. Still no account.</span></span>
+    <Card className={promo}>
+      <span className={promoIcon}><Icon name="phone" size={22} stroke={2.2} /></span>
+      <span className={promoText}><Text variant="label">Rather use the app?</Text><span className={promoSub}>Your answers come with you. Still no account.</span></span>
       <Button kind="soft" onClick={onGet}>Get it</Button>
     </Card>
   );
@@ -207,9 +211,9 @@ export function DecisionCard({ meta, title, sub, onOpen }: { meta: string; title
 
 export function DayTabs({ count, selected, onSelect }: { count: number; selected: number; onSelect: (i: number) => void }) {
   return (
-    <div className="daytabs" role="tablist" aria-label="Days">
+    <div className={dayTabs} role="tablist" aria-label="Days">
       {Array.from({ length: count }, (_, i) => (
-        <button key={i} type="button" role="tab" aria-selected={i === selected} aria-label={`Day ${i + 1}`} onClick={() => onSelect(i)}>
+        <button key={i} type="button" role="tab" className={dayTab} aria-selected={i === selected} aria-label={`Day ${i + 1}`} onClick={() => onSelect(i)}>
           <Text variant="numeral-xs" className="">{String(i + 1).padStart(2, "0")}</Text>
         </button>
       ))}
@@ -219,10 +223,10 @@ export function DayTabs({ count, selected, onSelect }: { count: number; selected
 
 export function BoardingPass({ day, time, title, meta, onRemove }: { day: string; time: string; title: string; meta: string; onRemove?: () => void }) {
   return (
-    <div className="pass">
-      <div className="pass__stub t-meta"><span>{day}</span><span>{time}</span></div>
-      <div className="pass__body"><span className="t-label">{title}</span><Meta>{meta}</Meta></div>
-      {onRemove && <button type="button" className="iconbtn pass__remove" aria-label={`Remove ${title}`} onClick={onRemove} style={{ background: "var(--paper)" }}><Icon name="trash" size={18} stroke={2.2} /></button>}
+    <div className={pass}>
+      <div className={cn(passStub, type.meta)}><span>{day}</span><span>{time}</span></div>
+      <div className={passBody}><Text variant="label">{title}</Text><Meta>{meta}</Meta></div>
+      {onRemove && <button type="button" className={cn(iconBtn, "mr-1.5 self-center bg-paper")} aria-label={`Remove ${title}`} onClick={onRemove}><Icon name="trash" size={18} stroke={2.2} /></button>}
     </div>
   );
 }

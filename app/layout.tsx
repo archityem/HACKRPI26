@@ -1,7 +1,17 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
 
-export const metadata = { title: "Tripflow", description: "Plan a group trip everyone can say yes to.", manifest: "/manifest.webmanifest" };
+// Link previews need absolute image URLs. Production uses the project's own domain; previews use their deployment URL.
+const host = process.env.VERCEL_ENV === "production" ? process.env.VERCEL_PROJECT_PRODUCTION_URL : process.env.VERCEL_URL;
+export const metadata: Metadata = {
+  metadataBase: new URL(host ? `https://${host}` : "http://localhost:3000"),
+  title: "Tripflow",
+  description: "Plan a group trip everyone can say yes to.",
+  manifest: "/manifest.webmanifest",
+  openGraph: { title: "Tripflow", description: "Plan a group trip everyone can say yes to.", siteName: "Tripflow", type: "website" },
+  twitter: { card: "summary_large_image" },
+};
 export const viewport = { themeColor: "#F4F0E8", width: "device-width", initialScale: 1 };
 
 // Archivo (display), Inter (UI) and Space Mono (meta) are the design fonts. The rest are only for the host's

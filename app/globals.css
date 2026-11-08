@@ -241,3 +241,6 @@ input[type="range"] { width: 100%; accent-color: var(--sage); margin: 4px 0; min
 .swatch[data-tone="dusk"] { color: var(--white); }
 .swatch[aria-pressed="true"] { border-color: var(--ink); }
 .swatch:active { transform: translateY(-4px) scale(1.02); }
+
+/* --- custom budget amount (budget fix) --- */
+.amount-input { min-height: var(--tap); }

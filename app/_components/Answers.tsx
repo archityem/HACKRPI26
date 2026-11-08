@@ -4,7 +4,7 @@ import { PREFS, airportsFor, api, dayDiff, money, range, type Snapshot } from "@
 import type { Deal } from "@/lib/types";
 import { QuestionCard, tripTone } from "@/components/trip";
 import { Button, Chip, Field, Icon, Meta, Progress, Text, useToast } from "@/components/ui";
-import { CustomAmount } from "./CustomAmount";
+import { EditableAmount } from "./EditableAmount";
 import { InstallSheet } from "./Invite";
 import { prefShort, useInstall, windowLabel, type Ctx } from "./common";
 
@@ -125,9 +125,8 @@ export function AnswersScreen(ctx: Ctx) {
       {/* 02 budget */}
       <QuestionCard number={num(1)} label={STEPS[1].label} value={values[1]} state={state(1)} tone="dusk" onEdit={() => edit(1)}>
         <label htmlFor="mybudget" className="t-meta">{STEPS[1].label}</label>
-        <Text variant="numeral" className="q__big">{money(d.max)}</Text>
+        <EditableAmount id="mybudget-amount" label="Your max budget in dollars. Type your own amount." value={d.max} onChange={(n) => set({ max: n })} />
         <input id="mybudget" type="range" min={0} max={Math.min(5000, cap)} step={cap > 400 ? 25 : 5} value={Math.min(d.max, 5000, cap)} onChange={(e) => set({ max: Number(e.target.value) })} />
-        <CustomAmount id="mybudget-custom" value={d.max} onChange={(n) => set({ max: n })} />
         <div className="q__foot t-meta"><span>Private</span><span>Trip cap {money(cap)}</span></div>
         <span style={{ fontSize: 13, lineHeight: 1.35 }}>The group only sees a range, never your number. Flights, {t.nights} nights and daily spending all count.</span>
       </QuestionCard>

@@ -54,8 +54,6 @@ a { color: inherit; }
 
 /* ---------- cards ---------- */
 .card { background: var(--surface); color: var(--on-surface); border-radius: var(--r-lg); padding: var(--s-md); display: flex; flex-direction: column; gap: var(--s-xs); text-align: left; border: 0; width: 100%; font-family: inherit; }
-.card[data-tone] { color: inherit; }
-.card[data-tone="surface"] { color: var(--on-surface); }
 .card--tight { padding: 12px 12px 12px var(--s-md); }
 button.card { transition: transform var(--press) var(--spring); }
 button.card:active { transform: translateY(-4px) scale(1.02); }
@@ -244,4 +242,7 @@ input[type="range"] { width: 100%; accent-color: var(--sage); margin: 4px 0; min
 .swatch:active { transform: translateY(-4px) scale(1.02); }
 
 /* --- custom budget amount (budget fix) --- */
-.amount-input { min-height: var(--tap); }
+/* the big budget number you can type into */
+.amount { display: flex; align-items: baseline; width: fit-content; max-width: 100%; min-height: var(--tap); cursor: text; border-bottom: 2px dashed transparent; transition: border-color var(--press); }
+.amount:hover, .amount:focus-within { border-bottom-color: currentColor; }
+.amount input { font: inherit; letter-spacing: inherit; font-stretch: inherit; color: inherit; background: transparent; border: 0; padding: 0; margin: 0; min-width: 1ch; max-width: 100%; outline: none; }

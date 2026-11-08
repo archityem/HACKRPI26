@@ -7,7 +7,7 @@ export default function Home() {
   return (
     <main className={screen}>
       <div className={topbar}>
-        <Meta>Elsewhere</Meta>
+        <Meta>Tripflow</Meta>
         <Meta className="text-muted">Group trips</Meta>
       </div>
       <div className={cn(titleblock, "mt-6")}>
@@ -15,7 +15,7 @@ export default function Home() {
         <Text as="p" variant="body-md" className="text-muted">Set the basics, send one link. Each friend adds their dates, budget and airport. No app, no sign-up.</Text>
       </div>
       <TripTicket tone="sage">
-        <div className={cn(ticketTop, type.meta)}><span>Elsewhere</span><span>No account</span></div>
+        <div className={cn(ticketTop, type.meta)}><span>Tripflow</span><span>No account</span></div>
         <Text variant="display-xxl">WHERE<br />TO?</Text>
         <Meta>The group decides</Meta>
         <Stub />

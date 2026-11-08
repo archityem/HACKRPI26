@@ -1,0 +1,32 @@
+HACKRPI26 / Elsewhere — handoff 2026-11-07 19:00 ET
+
+DONE on local branch archit-branch, commit 5924229.
+Not pushed. origin/archit-branch is 7 commits behind.
+Production (https://hackrpi-26.vercel.app) still tracks origin/main at c2ef42e.
+
+Goal completed:
+- Merged origin/main into archit-branch (Redis, covers, background AI, availability/share/retry/your-trips)
+- Deleted MongoDB storage
+- Kept trip log + worth-it shortlist
+- Dropped visa dealbreaker (Deal = nonstop | domestic | short | red-eye)
+
+NOT done:
+1. git push -u origin archit-branch  (user did not ask to push)
+2. Open PR #1 (https://github.com/archityem/HACKRPI26/pull/1) is stale/dirty; after push it needs a force-with-lease or a new PR onto main
+3. README.md still describes the old static index.html prototype
+4. No browser verification of the merged UI
+5. Classic poster fallback is still hardcoded "spring break out." when there is no photo/template
+6. Production will not get trip log / worth-it until this branch is merged to main and Vercel deploys
+
+Key files:
+- lib/store.ts          Redis + JSON file. No Mongo.
+- lib/types.ts          Trip.log + Trip.jobs; no visa
+- lib/matching.ts       valueCall / worth-it; no visa filter
+- app/api/trips/[code]/log/route.ts
+- app/_components/views.tsx   trip log + ItineraryBlock + CoverPicker poster
+- tests/api.test.ts     Windows-safe next binary spawn
+
+Verify:
+  npx tsc --noEmit
+  node --test tests/matching.test.ts tests/client.test.ts tests/ai.test.ts tests/cover.test.ts tests/jobs.test.ts tests/share.test.ts tests/store.test.ts tests/template.test.ts
+  node --test tests/api.test.ts

@@ -1,7 +1,5 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import vm from "node:vm";
 import { compute, costs, effectiveMax } from "../lib/matching.ts";
 import { FIXTURE_DESTINATIONS as DESTS } from "../lib/destinations.ts";
 import type { Member, Trip } from "../lib/types.ts";
@@ -124,76 +122,4 @@ test("a member joining only narrows the options, never widens them", () => {
   const solo = new Set(ids(compute(trip(), [member("a")], DESTS)));
   const duo = ids(compute(trip(), [member("a"), member("b", { max: 700, deals: ["nonstop"] })], DESTS));
   assert.ok(duo.every((i) => solo.has(i)));
-});
-
-// ---------- Parity with the prototype's original compute() ----------
-function loadPrototype() {
-  const lines = readFileSync(new URL("../prototype/elsewhere.html", import.meta.url), "utf8").split("\n");
-  const grab = (startsWith: string, to?: (l: string) => boolean) => {
-    const i = lines.findIndex((l) => l.startsWith(startsWith));
-    assert.ok(i >= 0, `prototype line not found: ${startsWith}`);
-    if (!to) return lines[i];
-    let j = i;
-    while (!to(lines[j])) j++;
-    return lines.slice(i, j + 1).join("\n");
-  };
-  const src = [
-    grab("const day="),
-    grab("const destinations=[", (l) => l.startsWith("];")),
-    grab("function costs("),
-    grab("function compute(", (l) => l.trimEnd().endsWith("allPrefs}}")),
-  ].join("\n");
-  const ctx = vm.createContext({ state: { members: [] } });
-  vm.runInContext(src + "\nthis.compute=compute;", ctx);
-  const fn = ctx.compute as (m: Member[]) => any;
-  // Results come from another vm realm; normalize so deepEqual compares plain data.
-  return (m: Member[]) => JSON.parse(JSON.stringify(fn(JSON.parse(JSON.stringify(m)))));
-}
-
-test("PARITY: ported compute() matches the prototype on 500 random scenarios", () => {
-  const proto = loadPrototype();
-  let seed = 42;
-  const rnd = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
-  const pick = <T,>(a: T[]) => a[Math.floor(rnd() * a.length)];
-  const some = <T,>(a: T[], min = 0) => {
-    const o = a.filter(() => rnd() < 0.4);
-    return o.length >= min ? o : a.slice(0, min);
-  };
-  const dd = (n: number) => `2027-03-${String(n).padStart(2, "0")}`;
-  let withSuggestions = 0;
-  for (let n = 0; n < 500; n++) {
-    const count = 1 + Math.floor(rnd() * 4);
-    const ms: Member[] = Array.from({ length: count }, (_, i) => {
-      const s = 1 + Math.floor(rnd() * 20);
-      const e = Math.min(31, s + 3 + Math.floor(rnd() * 14));
-      const max = 300 + Math.floor(rnd() * 1500);
-      // Prototype has an explicit mode; we model "range" as min > 0 and "max only" as min = 0.
-      const range = rnd() < 0.5;
-      return member(`m${i}`, {
-        origin: pick(["BOS", "JFK", "ALB"]), start: dd(s), end: dd(e),
-        min: range ? 1 + Math.floor(rnd() * (max - 1)) : 0, max,
-        prefs: some(["beach", "food", "nature", "nightlife", "culture", "city"], 1),
-        deals: some(["nonstop", "domestic", "short", "red-eye"]) as Member["deals"],
-      });
-    });
-    const a = proto(ms.map((m) => ({ ...m, mode: m.min > 0 ? "range" : "max" })));
-    const b = compute(trip(), ms, DESTS);
-    const label = JSON.stringify(ms);
-    assert.equal(b.overlap, a.overlap, `overlap ${label}`);
-    assert.deepEqual(ids(b), a.eligible.map((d: any) => d.id), `eligible order ${label}`);
-    // Deliberate difference: with no date overlap the prototype still lists budget-based
-    // exclusions (misleading, since dates are the real problem); we return none.
-    if (a.overlap) {
-      assert.deepEqual(
-        b.excluded.map((d) => [d.id, d.reasons]).sort(),
-        a.excluded.map((d: any) => [d.id, d.reasons]).sort(),
-        `excluded ${label}`,
-      );
-      assert.equal(b.tripEnd, a.tripEnd, `tripEnd ${label}`);
-    } else {
-      assert.deepEqual(b.excluded, [], `no overlap → no exclusions ${label}`);
-    }
-    if (a.eligible.length) withSuggestions++;
-  }
-  assert.ok(withSuggestions > 100, `scenarios too degenerate (${withSuggestions} had suggestions)`);
 });

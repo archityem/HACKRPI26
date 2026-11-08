@@ -194,6 +194,13 @@ export function RankScreen(ctx: Ctx) {
             <ul style={{ margin: "6px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>{m.excluded.map((d) => <li key={d.id}><strong>{d.name}:</strong> {d.reasons.join("; ")}.</li>)}</ul>
           </details>
         )}
+        {/* These two live in the page flow, not the pinned bar, so they never cover the list. */}
+        {(proposal || (isHost && lockedCount > 0)) && (
+          <div className="col center">
+            {proposal && <LinkButton onClick={unlock}>Change my ranking</LinkButton>}
+            {isHost && !proposal && lockedCount > 0 && <LinkButton onClick={pickNow}>Close ranking and pick #1</LinkButton>}
+          </div>
+        )}
         <div className="cta">
           <Meta className="muted center">
             {proposal ? "Everyone locked in" : `${lockedCount} of ${readyIds.length} locked in${haveVotes && leader ? ` · group #1: ${leader.name}` : ""}`}
@@ -201,14 +208,13 @@ export function RankScreen(ctx: Ctx) {
           {proposal ? (
             <Button kind="primary" onClick={() => ctx.go("plan")}>See the plan<Icon name="arrow" /></Button>
           ) : locked ? (
-            <>
-              <Button kind="primary" disabled>Locked in · waiting on {Math.max(0, readyIds.length - lockedCount)}</Button>
-              <LinkButton onClick={unlock}>Change my ranking</LinkButton>
-            </>
+            // One button does both jobs: it shows you're locked in, and tapping it unlocks so you can reorder.
+            <Button kind="primary" icon="lock" aria-pressed="true" aria-label="Locked in. Tap to unlock and change your ranking." onClick={unlock}>
+              Locked in · tap to change
+            </Button>
           ) : (
             <Button kind="primary" onClick={lockIn}>Lock in my ranking</Button>
           )}
-          {isHost && !proposal && lockedCount > 0 && <LinkButton onClick={pickNow}>Close ranking and pick #1</LinkButton>}
         </div>
       </>
     );

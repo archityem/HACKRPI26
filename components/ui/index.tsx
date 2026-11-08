@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+export { SlideToLock } from "./SlideToLock";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 
 // ---------- Icons (inline, bold stroke; decorative unless the parent button has a label) ----------

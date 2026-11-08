@@ -4,7 +4,7 @@ import { api, type Snapshot } from "@/lib/client";
 import { groupOrder, orderOf, verdictFor } from "@/lib/rank";
 import { EstimateCard, type Estimate } from "@/components/trip";
 import { RankList, type RankItem } from "@/components/trip/RankList";
-import { Button, Icon, IconButton, LinkButton, Meta, Sheet, Text, useToast } from "@/components/ui";
+import { Button, Icon, IconButton, LinkButton, Meta, Sheet, SlideToLock, Text, useToast } from "@/components/ui";
 import { andList, monthName, prefShort, windowShort, type Ctx } from "./common";
 
 // ---------------------------------------------------------------- 07 · Propose your own
@@ -115,14 +115,20 @@ export function RankScreen(ctx: Ctx) {
     };
   });
 
-  function save(next: string[], lock: boolean, msg?: string, undo?: () => void) {
-    if (!me) return;
+  /** Save my order (and whether it's locked). Resolves to whether it worked. */
+  async function save(next: string[], lock: boolean, msg?: string, undo?: () => void): Promise<boolean> {
+    if (!me) return false;
     const mine = ++seq.current;
     inflight.current++;
-    api<Snapshot>(`/api/trips/${ctx.code}/rank`, { memberId: me.id, ranking: next, locked: lock })
-      .then((s) => { if (mine === seq.current) ctx.apply(s); if (msg) toast(msg, { undo }); })
-      .catch((e) => toast(e instanceof Error ? e.message : "Couldn’t save your ranking."))
-      .finally(() => { inflight.current--; });
+    try {
+      const s = await api<Snapshot>(`/api/trips/${ctx.code}/rank`, { memberId: me.id, ranking: next, locked: lock });
+      if (mine === seq.current) ctx.apply(s);
+      if (msg) toast(msg, { undo });
+      return true;
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Couldn’t save your ranking.");
+      return false;
+    } finally { inflight.current--; }
   }
   const retry = () => ctx.run(() => api(`/api/trips/${ctx.code}/retry`, { memberId: me!.id }), "Trying again.");
   const reorder = (next: string[]) => { setOrder(next); save(next, false); };
@@ -207,13 +213,12 @@ export function RankScreen(ctx: Ctx) {
           </Meta>
           {proposal ? (
             <Button kind="primary" onClick={() => ctx.go("plan")}>See the plan<Icon name="arrow" /></Button>
-          ) : locked ? (
-            // One button does both jobs: it shows you're locked in, and tapping it unlocks so you can reorder.
-            <Button kind="primary" icon="lock" aria-pressed="true" aria-label="Locked in. Tap to unlock and change your ranking." onClick={unlock}>
-              Locked in · tap to change
-            </Button>
           ) : (
-            <Button kind="primary" onClick={lockIn}>Lock in my ranking</Button>
+            <SlideToLock
+              locked={locked} disabled={!me?.ready}
+              label="Slide to lock in" lockedLabel={`Locked in · waiting on ${Math.max(0, readyIds.length - lockedCount)}`}
+              onLock={lockIn} onUnlock={unlock}
+            />
           )}
         </div>
       </>

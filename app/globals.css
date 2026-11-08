@@ -218,6 +218,24 @@ input[type="range"] { width: 100%; accent-color: var(--sage); margin: 4px 0; min
 [data-tone="butter"] { background: var(--butter); color: var(--on-butter); }
 [data-tone="sky"] { background: var(--sky); color: var(--on-sky); }
 
+/* ---------- slide to lock ---------- */
+.slide { position: relative; height: var(--btn-primary); border-radius: var(--r-pill); background: var(--ink); color: var(--white); overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: pan-y; transition: background 250ms var(--ease); }
+.slide[data-locked] { background: var(--sage); }
+/* the sage trail behind the thumb: always tucked under it, so nothing shows at rest */
+.slide__fill { position: absolute; left: 4px; top: 4px; bottom: 4px; background: var(--sage); border-radius: var(--r-pill); transition: width 320ms var(--ease); }
+.slide__label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding-left: 52px; padding-right: 16px; font-size: 17px; text-align: center; pointer-events: none; transition: opacity 200ms var(--ease), color 200ms var(--ease); }
+.slide[data-locked] .slide__label { color: var(--ink); }
+.slide__thumb { position: absolute; left: 4px; top: 4px; width: 48px; height: 48px; border: 0; padding: 0; border-radius: var(--r-pill); background: var(--white); color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: grab; touch-action: pan-y; transition: transform 320ms var(--spring), background 200ms var(--ease), color 200ms var(--ease); }
+.slide[data-locked] .slide__thumb { background: var(--ink); color: var(--white); }
+.slide[data-dragging] .slide__thumb { cursor: grabbing; transition: background 200ms var(--ease), color 200ms var(--ease); }
+.slide[data-dragging] .slide__fill { transition: none; }
+.slide[data-disabled] { opacity: 0.45; }
+.slide[data-disabled] .slide__thumb { cursor: not-allowed; }
+.slide__lock { transition: transform 200ms var(--ease); }
+.slide[data-dragging] .slide__lock { transition: none; }
+.slide__lock--pop { animation: lockpop 380ms var(--spring); }
+@keyframes lockpop { 0% { scale: 1; } 40% { scale: 1.3; } 100% { scale: 1; } }
+
 /* ---------- motion ---------- */
 @keyframes rise { from { transform: translate(var(--tx, -50%), 40px); opacity: 0; } to { transform: translate(var(--tx, -50%), 0); opacity: 1; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }

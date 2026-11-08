@@ -4,7 +4,7 @@ import type { Deal, Member, Trip, Vote } from "./types";
 // Shapes the API returns, shared by the UI.
 export type PublicMember = Omit<Member, "min" | "max"> & { min?: number; max?: number };
 
-export type PublicTrip = Omit<Trip, "cover"> & { coverUrl: string | null };
+export type PublicTrip = Omit<Trip, "cover" | "drafts"> & { coverUrl: string | null };
 
 export interface Snapshot {
   trip: PublicTrip;
@@ -24,6 +24,7 @@ export interface Snapshot {
     tripEnd: string | null;
     overlap: boolean;
     readyCount: number;
+    budgetRange: [number, number] | null; // the group's lowest and highest budget, never one person's number
     eligible: Suggestion[];
     excluded: { id: string; name: string; reasons: string[] }[];
   };

@@ -94,8 +94,10 @@ export function compute(trip: Trip, members: Member[], destinations: Destination
       perMember,
       groupTotal,
     };
-    (entry.reasons.length ? excluded : eligible).push(entry);
+    // A place a member added is always ranked: its warnings are shown instead of hiding it.
+    (entry.reasons.length && !d.proposedBy ? excluded : eligible).push(entry);
   }
   eligible.sort((a, b) => b.score - a.score);
-  return { ready, start, end, tripEnd, overlap, eligible: eligible.slice(0, 5), excluded };
+  const added = eligible.filter((d) => d.proposedBy);
+  return { ready, start, end, tripEnd, overlap, eligible: [...eligible.filter((d) => !d.proposedBy).slice(0, 5), ...added], excluded };
 }

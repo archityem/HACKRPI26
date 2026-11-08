@@ -56,7 +56,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
   if (source !== "pending") {
     const eligible = new Set(compute(trip, members, destinations).eligible.map((d) => d.id));
     for (const v of await store.listVotes(code)) {
-      if (!eligible.has(v.destinationId)) await store.deleteVote(code, v.memberId);
+      const order = (v.ranking ?? [v.destinationId]).filter((id) => eligible.has(id));
+      if (!order.length) await store.deleteVote(code, v.memberId);
+      else await store.setVote({ ...v, destinationId: order[0], ranking: order, locked: false }); // changed answers release every lock
     }
   }
   return NextResponse.json({ memberId: member.id, ...(await snapshot(code, member.id)) });

@@ -38,9 +38,10 @@ function covers(c: NonNullable<Trip["candidates"]>, members: Member[]) {
 
 /** Which destinations to match against right now. */
 export function destinationsFor(trip: Trip, members: Member[]): { destinations: Destination[]; source: Source } {
-  if (!aiEnabled()) return { destinations: FIXTURE_DESTINATIONS, source: "fixture" };
-  if (trip.candidates && covers(trip.candidates, members)) return { destinations: trip.candidates.destinations, source: "gemini" };
-  if (jobFresh(trip.jobs?.candidates, candidateKey(trip, members)) === "failed") return { destinations: FIXTURE_DESTINATIONS, source: "fallback" };
+  const added = trip.custom ?? []; // places members added to the ranking ride along with whatever the AI proposed
+  if (!aiEnabled()) return { destinations: [...FIXTURE_DESTINATIONS, ...added], source: "fixture" };
+  if (trip.candidates && covers(trip.candidates, members)) return { destinations: [...trip.candidates.destinations, ...added], source: "gemini" };
+  if (jobFresh(trip.jobs?.candidates, candidateKey(trip, members)) === "failed") return { destinations: [...FIXTURE_DESTINATIONS, ...added], source: "fallback" };
   return { destinations: [], source: "pending" };
 }
 
@@ -136,9 +137,14 @@ export async function retryAi(code: string) {
 /** New proposals replace the old ones: drop votes/proposals pointing at destinations that no longer exist. */
 async function pruneToDestinations(code: string, destinations: Destination[]) {
   const store = await getStore();
-  const ids = new Set(destinations.map((d) => d.id));
-  for (const v of await store.listVotes(code)) if (!ids.has(v.destinationId)) await store.deleteVote(code, v.memberId);
   const trip = await store.getTrip(code);
+  const ids = new Set([...destinations, ...(trip?.custom ?? [])].map((d) => d.id));
+  for (const v of await store.listVotes(code)) {
+    const all = v.ranking ?? [v.destinationId];
+    const ranking = all.filter((id) => ids.has(id));
+    if (!ranking.length) await store.deleteVote(code, v.memberId);
+    else if (ranking.length !== all.length) await store.setVote({ ...v, destinationId: ranking[0], ranking, locked: false });
+  }
   if (trip?.proposal && !ids.has(trip.proposal)) await resetAgreement(trip);
 }
 
@@ -159,7 +165,11 @@ export async function snapshot(code: string, me?: string | null) {
   const view = members.map((m) =>
     m.id === me ? m : { ...m, min: undefined, max: undefined },
   ) as Array<Member | Omit<Member, "min" | "max">>;
-  const { cover, ...publicTrip } = trip; // the picture is served separately, not on every poll
+  const { cover, drafts, ...publicTrip } = trip; // the picture is served separately; drafts are private to their member
+  void drafts;
+  // The group sees a range of budgets, never one person's number (and never with a single answer).
+  const caps = match.ready.map((m) => Math.min(m.max, trip.maxBudget));
+  const budgetRange = caps.length >= 2 ? [Math.min(...caps), Math.max(...caps)] : null;
   return {
     trip: { ...publicTrip, coverUrl: cover ? coverUrl(code) : null },
     members: view,
@@ -182,6 +192,7 @@ export async function snapshot(code: string, me?: string | null) {
       tripEnd: match.tripEnd,
       overlap: match.overlap,
       readyCount: match.ready.length,
+      budgetRange,
       eligible: match.eligible,
       excluded: match.excluded.map(({ id, name, reasons }) => ({ id, name, reasons })),
     },
@@ -199,4 +210,21 @@ function itineraryStatus(trip: Trip, key: string | null, generating: boolean, fa
   if (key && trip.itinerary?.key === key) return "ready";
   if (generating) return "generating";
   return failed ? "failed" : "generating"; // not started yet counts as generating: it starts on this very request
+}
+
+// ---- Member-suggested places ---------------------------------------------------------------------
+
+const hash = (s: string) => [...s].reduce((n, c) => (n * 31 + c.charCodeAt(0)) >>> 0, 7);
+export const placeId = (name: string) => (name.toLowerCase().normalize("NFD").replace(/[^a-z0-9]+/g, "").slice(0, 24) || "place") + "-c";
+
+/** Without AI there is no real pricing: make a stable, clearly labelled sample estimate from the name. */
+export function sampleEstimate(trip: Trip, members: Member[], name: string): Destination {
+  const h = hash(name.toLowerCase());
+  const origins = [...new Set(members.filter((m) => m.ready).map((m) => m.origin))];
+  return {
+    id: placeId(name), name, country: "Sample estimate", emoji: "📍", caption: "A place from the group", tags: [],
+    flight: Object.fromEntries(origins.map((o, i) => [o, 140 + ((h >> (i * 3)) % 260)])),
+    night: 40 + (h % 35), daily: 24 + (h % 10), hours: 2 + (h % 5), stops: 0, domestic: false, overnight: false,
+    reason: "Sample numbers: turn on the AI key for a real estimate.",
+  };
 }

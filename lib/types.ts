@@ -24,6 +24,19 @@ export interface Trip {
   candidates?: Candidates; // cached destination proposals; fixtures are used when absent
   itinerary?: Itinerary; // cached plan for the approved destination
   jobs?: Jobs; // background AI work, recorded on the trip so every server instance sees it
+  tone?: "sage" | "apricot" | "dusk" | "lavender" | "rose" | "butter" | "sky"; // the host's ticket color
+  custom?: Destination[]; // places members added to the ranking ("got a better idea?")
+  drafts?: Record<string, Destination>; // a member's priced-but-not-yet-added place, by member id
+  lodgingVotes?: Record<string, string>; // member id -> lodging option id (lib/lodging.ts)
+  planItems?: PlanItem[]; // things members added to the itinerary
+}
+
+export interface PlanItem {
+  id: string;
+  day: number; // 0-based day of the trip
+  time: string; // HH:MM, 24h
+  title: string;
+  addedBy: string; // member id
 }
 
 export interface JobState {
@@ -63,7 +76,9 @@ export interface Member {
 export interface Vote {
   tripCode: string;
   memberId: string;
-  destinationId: string;
+  destinationId: string; // the member's #1 pick
+  ranking?: string[]; // the member's full order, best first
+  locked?: boolean; // "lock in my ranking"
 }
 
 export interface Destination {
@@ -80,6 +95,8 @@ export interface Destination {
   stops: number;
   domestic: boolean;
   overnight: boolean;
+  proposedBy?: string; // member id, for places added by a member instead of proposed by the AI
+  reason?: string; // one-line AI note about the price
 }
 
 export interface ItineraryDay {

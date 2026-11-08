@@ -1,0 +1,215 @@
+"use client";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api, type Snapshot } from "@/lib/client";
+import { groupOrder, orderOf, verdictFor } from "@/lib/rank";
+import { EstimateCard, type Estimate } from "@/components/trip";
+import { RankList, type RankItem } from "@/components/trip/RankList";
+import { Button, Icon, IconButton, LinkButton, Meta, Sheet, Text, useToast } from "@/components/ui";
+import { andList, monthName, prefShort, windowShort, type Ctx } from "./common";
+
+// ---------------------------------------------------------------- 07 · Propose your own
+function ProposeSheet({ ctx, open, onClose }: { ctx: Ctx; open: boolean; onClose: () => void }) {
+  const toast = useToast();
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState("");
+  const [res, setRes] = useState<{ estimate: Estimate; source: "gemini" | "sample" } | null>(null);
+  const me = ctx.me;
+
+  useEffect(() => { if (open) { setName(""); setRes(null); setError(""); } }, [open]);
+
+  async function price() {
+    if (!me || !name.trim()) return setError("Type a place first.");
+    setBusy(true); setError(""); setRes(null);
+    try { setRes(await api<{ estimate: Estimate; source: "gemini" | "sample" }>(`/api/trips/${ctx.code}/estimate`, { memberId: me.id, name: name.trim() })); }
+    catch (e) { setError(e instanceof Error ? e.message : "Couldn’t price that. Try again."); }
+    finally { setBusy(false); }
+  }
+  async function add() {
+    if (!me || !res) return;
+    setAdding(true);
+    const ok = await ctx.run(() => api(`/api/trips/${ctx.code}/custom`, { memberId: me.id }));
+    setAdding(false);
+    if (ok) { toast(`${res.estimate.name} is on the list. Lock in again to count it.`); onClose(); }
+    else setError("Couldn’t add that. Try again.");
+  }
+  const e = res?.estimate;
+
+  return (
+    <Sheet open={open} onClose={onClose} label="Suggest your own place">
+      <div className="sheet__head">
+        <Text as="h2" variant="display-md">got a better idea?</Text>
+        <p>Name a place. {ctx.snap.ai.enabled ? "AI prices it for the group." : "We’ll estimate it for the group."}</p>
+      </div>
+      <form className="field field--row" onSubmit={(ev) => { ev.preventDefault(); void price(); }}>
+        <span className="grow">
+          <Meta>Where to?</Meta>
+          <input value={name} maxLength={60} autoFocus placeholder="Chicago" aria-label="Where to?" onChange={(ev) => { setName(ev.target.value); setError(""); }} />
+        </span>
+        <Button kind="ink" disabled={busy || name.trim().length < 2} onClick={price}>{busy ? "Pricing…" : "Price it"}</Button>
+      </form>
+      <div className="err" role="alert">{error}</div>
+      {busy && (
+        <div aria-live="polite">
+          <div className="skeleton" style={{ height: 210 }} />
+          <Meta className="muted">pricing {name.trim().toLowerCase()}…</Meta>
+        </div>
+      )}
+      {e && res && <EstimateCard e={e} source={res.source} dates={windowShort(e.start, new Date(new Date(e.start + "T12:00:00Z").getTime() + e.nights * 86_400_000).toISOString().slice(0, 10))} month={monthName(e.start)} />}
+      {e && <Button kind="primary" disabled={adding} onClick={add}>{adding ? "Adding…" : "Add to the ranking"}</Button>}
+    </Sheet>
+  );
+}
+
+// ---------------------------------------------------------------- 06 · Rank 'em
+export function RankScreen(ctx: Ctx) {
+  const { snap, me } = ctx;
+  const t = snap.trip;
+  const m = snap.match;
+  const toast = useToast();
+  const [propose, setPropose] = useState(false);
+  const eligible = m.eligible;
+  const ids = useMemo(() => eligible.map((d) => d.id), [eligible]);
+  const myVote = snap.votes.find((v) => v.memberId === me?.id);
+  const saved = myVote ? orderOf(myVote, ids) : [];
+  const base = useMemo(() => [...saved, ...ids.filter((id) => !saved.includes(id))], [saved.join(), ids.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [order, setOrder] = useState<string[]>(base);
+  const [fresh, setFresh] = useState<string | null>(null);
+  const seq = useRef(0);
+  const inflight = useRef(0);
+  const known = useRef(new Set(ids));
+
+  // Follow the server unless we've just changed the order ourselves.
+  useEffect(() => { if (inflight.current === 0) setOrder(base); }, [base]);
+  // A place that just showed up gets a short pop.
+  useEffect(() => {
+    const added = ids.find((id) => !known.current.has(id));
+    ids.forEach((id) => known.current.add(id));
+    if (added && known.current.size > 1) { setFresh(added); const x = setTimeout(() => setFresh(null), 1500); return () => clearTimeout(x); }
+  }, [ids.join()]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const locked = !!myVote?.locked;
+  const readyIds = snap.members.filter((x) => x.ready).map((x) => x.id);
+  const lockedCount = snap.votes.filter((v) => v.locked && readyIds.includes(v.memberId)).length;
+  const isHost = me?.id === t.hostMemberId;
+  const proposal = t.proposal;
+  const group = groupOrder(snap.votes, ids, readyIds);
+  const haveVotes = snap.votes.some((v) => readyIds.includes(v.memberId));
+  const leader = haveVotes ? eligible.find((d) => d.id === group[0]?.id) : undefined;
+  const month = m.start ? monthName(m.start) : "";
+  const source: "AI" | "Est." = snap.ai.source === "gemini" ? "AI" : "Est.";
+
+  const items: RankItem[] = order.map((id) => {
+    const d = eligible.find((x) => x.id === id)!;
+    const mine = me ? d.perMember[me.id] : undefined;
+    const avg = m.readyCount ? Math.round(d.groupTotal / m.readyCount) : 0;
+    const per = mine ? mine.total : avg;
+    const proposer = d.proposedBy ? snap.members.find((x) => x.id === d.proposedBy) : undefined;
+    const why = d.proposedBy
+      ? (d.reasons.length ? `Heads up: ${d.reasons.join("; ").toLowerCase()}.` : d.reason || "Added by the group and priced the same way as the rest.")
+      : `Under everyone’s budget${d.stops === 0 ? ", nonstop flights" : ""}.${d.matched.length ? ` Matches ${andList(d.matched.map(prefShort)).toLowerCase()}.` : ""}`;
+    return {
+      id, name: d.name, per, total: d.groupTotal, verdict: verdictFor(avg || per, t.maxBudget), why, isNew: id === fresh,
+      sub: d.proposedBy ? `${proposer ? proposer.name + "’s" : "A friend’s"} idea · ${snap.ai.source === "gemini" ? "AI priced" : "est. price"}` : undefined,
+    };
+  });
+
+  function save(next: string[], lock: boolean, msg?: string, undo?: () => void) {
+    if (!me) return;
+    const mine = ++seq.current;
+    inflight.current++;
+    api<Snapshot>(`/api/trips/${ctx.code}/rank`, { memberId: me.id, ranking: next, locked: lock })
+      .then((s) => { if (mine === seq.current) ctx.apply(s); if (msg) toast(msg, { undo }); })
+      .catch((e) => toast(e instanceof Error ? e.message : "Couldn’t save your ranking."))
+      .finally(() => { inflight.current--; });
+  }
+  const reorder = (next: string[]) => { setOrder(next); save(next, false); };
+  const lockIn = () => save(order, true, "Ranking locked.", () => save(order, false));
+  const unlock = () => save(order, false);
+  const pickNow = async () => {
+    if (!me || !group[0]) return;
+    await ctx.run(() => api(`/api/trips/${ctx.code}/proposal`, { memberId: me.id, destinationId: group[0].id }), "Ranking closed. Time to say yes.");
+    ctx.go("plan");
+  };
+
+  let body;
+  if (!me?.ready) {
+    body = (
+      <>
+        <div className="why" style={{ background: "var(--surface)", borderRadius: "var(--r-lg)", padding: 16 }}><Meta>Answer first</Meta><span>Ideas are priced from everyone’s airports and budgets. Add yours to start ranking.</span></div>
+        <div className="cta"><Button kind="primary" onClick={() => ctx.go("answers")}>Add my answers<Icon name="arrow" /></Button></div>
+      </>
+    );
+  } else if (snap.ai.source === "pending" && m.overlap) {
+    body = (
+      <>
+        <div className="skeleton" style={{ height: 250 }} />
+        {[0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 52 }} />)}
+        <Meta className="muted" aria-live="polite">pricing destinations for your group…</Meta>
+      </>
+    );
+  } else if (!m.overlap || !eligible.length) {
+    body = (
+      <>
+        <div className="why" style={{ background: "var(--surface)", borderRadius: "var(--r-lg)", padding: 16 }}>
+          <Meta>{!m.overlap ? "No shared dates yet" : "Nothing fits yet"}</Meta>
+          <span>{!m.overlap ? `There isn’t a shared ${t.nights}-night window yet. Check the vibe check, or edit your dates.` : "No place meets every budget and hard no. Check why below, or loosen something."}</span>
+        </div>
+        {m.excluded.length > 0 && (
+          <details className="why" style={{ background: "var(--surface)", borderRadius: "var(--r-lg)", padding: 16 }}>
+            <summary className="t-label">Why {m.excluded.length} places didn’t make it</summary>
+            <ul style={{ margin: "8px 0 0", paddingLeft: 18, display: "grid", gap: 6 }}>{m.excluded.map((d) => <li key={d.id}><strong>{d.name}:</strong> {d.reasons.join("; ")}.</li>)}</ul>
+          </details>
+        )}
+        <button type="button" className="addrow" onClick={() => setPropose(true)}><Icon name="plus" size={18} stroke={2.6} />Suggest your own place</button>
+        <div className="cta"><Button kind="primary" onClick={() => ctx.go(m.overlap ? "answers" : "vibe")}>{m.overlap ? "Edit my answers" : "Open the vibe check"}</Button></div>
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <RankList items={items} onReorder={reorder} shared={{ month, source, travelers: m.readyCount, meta: `${m.start && m.tripEnd ? windowShort(m.start, m.tripEnd) : ""} · ${t.nights} nights · ${(t.vibes.length ? t.vibes : eligible.find((d) => d.id === order[0])?.matched.slice(0, 2) ?? []).map(prefShort).join(" + ") || "Anything goes"}` }} />
+        <button type="button" className="addrow" onClick={() => setPropose(true)}><Icon name="plus" size={18} stroke={2.6} />Suggest your own place</button>
+        {m.excluded.length > 0 && (
+          <details className="muted" style={{ padding: "0 4px" }}>
+            <summary className="t-meta" style={{ cursor: "pointer", minHeight: 32 }}>Why {m.excluded.length} other {m.excluded.length === 1 ? "place" : "places"} didn’t make it</summary>
+            <ul style={{ margin: "6px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>{m.excluded.map((d) => <li key={d.id}><strong>{d.name}:</strong> {d.reasons.join("; ")}.</li>)}</ul>
+          </details>
+        )}
+        <div className="cta">
+          <Meta className="muted center">
+            {proposal ? "Everyone locked in" : `${lockedCount} of ${readyIds.length} locked in${haveVotes && leader ? ` · group #1: ${leader.name}` : ""}`}
+          </Meta>
+          {proposal ? (
+            <Button kind="primary" onClick={() => ctx.go("plan")}>See the plan<Icon name="arrow" /></Button>
+          ) : locked ? (
+            <>
+              <Button kind="primary" disabled>Locked in · waiting on {Math.max(0, readyIds.length - lockedCount)}</Button>
+              <LinkButton onClick={unlock}>Change my ranking</LinkButton>
+            </>
+          ) : (
+            <Button kind="primary" onClick={lockIn}>Lock in my ranking</Button>
+          )}
+          {isHost && !proposal && lockedCount > 0 && <LinkButton onClick={pickNow}>Close ranking and pick #1</LinkButton>}
+        </div>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div className="topbar">
+        <IconButton icon="back" label="Back to the vibe check" onClick={() => ctx.go("vibe")} />
+        <Meta>Trip ideas · {eligible.length}</Meta>
+        <IconButton icon="refresh" label="Refresh ideas" onClick={() => { ctx.refresh(); toast("Checking for new ideas…"); }} />
+      </div>
+      <div className="titleblock">
+        <Text as="h1" variant="display-lg">rank ’em</Text>
+        <Meta>{leader ? `Drag to reorder · group #1 so far: ${leader.name}` : "Drag to reorder · starts in the AI’s order"}</Meta>
+      </div>
+      {body}
+      <ProposeSheet ctx={ctx} open={propose} onClose={() => setPropose(false)} />
+    </>
+  );
+}

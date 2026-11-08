@@ -10,6 +10,7 @@ export interface Trip {
   title: string;
   note: string;
   theme: Theme;
+  tone?: "sage" | "apricot" | "dusk" | "lavender" | "rose" | "butter" | "sky"; // the host's ticket color
   template?: InviteTemplate; // AI-designed invite look (lib/template.ts); the classic poster when absent
   cover?: string; // host's invite picture as a data URL (lib/cover.ts); never sent in snapshots
   windowStart: string; // YYYY-MM-DD, host's rough date window
@@ -23,6 +24,18 @@ export interface Trip {
   createdAt: string;
   candidates?: Candidates; // cached destination proposals; fixtures are used when absent
   itinerary?: Itinerary; // cached plan for the approved destination
+  custom?: Destination[]; // places members added to the ranking ("got a better idea?")
+  drafts?: Record<string, Destination>; // a member's priced-but-not-yet-added place, by member id
+  lodgingVotes?: Record<string, string>; // member id -> lodging option id (lib/lodging.ts)
+  planItems?: PlanItem[]; // things members added to the itinerary
+}
+
+export interface PlanItem {
+  id: string;
+  day: number; // 0-based day of the trip
+  time: string; // HH:MM, 24h
+  title: string;
+  addedBy: string; // member id
 }
 
 export interface Candidates {
@@ -50,7 +63,9 @@ export interface Member {
 export interface Vote {
   tripCode: string;
   memberId: string;
-  destinationId: string;
+  destinationId: string; // the member's #1 pick
+  ranking?: string[]; // the member's full order, best first
+  locked?: boolean; // "lock in my ranking"
 }
 
 export interface Destination {
@@ -67,6 +82,8 @@ export interface Destination {
   stops: number;
   domestic: boolean;
   overnight: boolean;
+  proposedBy?: string; // member id, for places added by a member instead of proposed by the AI
+  reason?: string; // one-line AI note about the price
 }
 
 export interface ItineraryDay {

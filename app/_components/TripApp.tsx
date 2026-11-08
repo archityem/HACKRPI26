@@ -1,25 +1,33 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, loadMemberId, saveMemberId, type Snapshot } from "@/lib/client";
-import { Shell, type View } from "./Shell";
-import { CrewView, IdeasView, InviteView, OnboardView, PlanView, type Ctx } from "./views";
+import { ButtonLink, Card, Meta, TabBar, Text, ToastProvider, useToast } from "@/components/ui";
+import { AnswersScreen } from "./Answers";
+import { InviteScreen, LandingScreen } from "./Invite";
+import { PlanScreen } from "./Plan";
+import { RankScreen } from "./Rank";
+import { VibeScreen } from "./Vibe";
+import type { Ctx, View } from "./common";
 
 const POLL_MS = 4000;
+const VIEWS: View[] = ["invite", "answers", "vibe", "rank", "plan"];
+const fromHash = (): View | null => {
+  const h = typeof window === "undefined" ? "" : window.location.hash.slice(1);
+  return (VIEWS as string[]).includes(h) ? (h as View) : null;
+};
 
 export default function TripApp({ code }: { code: string }) {
+  return <ToastProvider><Trip code={code} /></ToastProvider>;
+}
+
+function Trip({ code }: { code: string }) {
+  const toast = useToast();
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
   const [meId, setMeId] = useState<string | null | undefined>(undefined); // undefined = not read from storage yet
-  const [view, setView] = useState<View>("invite");
-  const [toastMsg, setToastMsg] = useState("");
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const greeted = useRef(false);
-
-  const toast = useCallback((s: string) => {
-    setToastMsg(s);
-    clearTimeout(timer.current);
-    timer.current = setTimeout(() => setToastMsg(""), 4200);
-  }, []);
+  const [view, setView] = useState<View | null>(null);
+  const [tick, setTick] = useState(0);
+  const settled = useRef(false);
 
   useEffect(() => { setMeId(loadMemberId(code)); }, [code]);
 
@@ -37,42 +45,74 @@ export default function TripApp({ code }: { code: string }) {
     load();
     const iv = setInterval(load, POLL_MS);
     return () => { stop = true; clearInterval(iv); };
-  }, [code, meId]);
+  }, [code, meId, tick]);
 
   const me = snap?.members.find((m) => m.id === meId);
 
-  // The host lands straight in the questions they still owe, once.
+  // Open on the right screen once: where the link says, else where this person left off.
   useEffect(() => {
-    if (snap && !greeted.current) {
-      greeted.current = true;
-      if (me && !me.ready && me.id === snap.trip.hostMemberId) setView("onboard");
-    }
+    if (!snap || settled.current) return;
+    settled.current = true;
+    setView(fromHash() ?? (me?.ready ? (snap.trip.proposal ? "rank" : "vibe") : "invite"));
   }, [snap, me]);
+
+  const go = useCallback((v: View) => {
+    setView(v);
+    window.history.replaceState(null, "", `#${v}`);
+    window.scrollTo({ top: 0 });
+  }, []);
 
   const run: Ctx["run"] = async (fn, okMsg) => {
     try { setSnap(await fn()); if (okMsg) toast(okMsg); return true; }
     catch (e) { toast(e instanceof Error ? e.message : "Something went wrong."); return false; }
   };
 
-  if (!snap) {
+  if (!snap || !view) {
     return (
-      <Shell>
-        <div className="ew-empty">
-          <span className="ew-empty-icon">☁</span>
-          <h2>{error ? "We couldn’t find that trip." : "Loading your trip…"}</h2>
-          {error && <><p>{error}. Check the invite link, or start a new trip.</p><a className="ew-btn ew-primary" href="/new">Start a trip</a></>}
-        </div>
-      </Shell>
+      <main className="screen">
+        {error ? (
+          <>
+            <div className="titleblock" style={{ marginTop: 40 }}><Text as="h1" variant="display-lg">lost trip</Text><Meta>We couldn’t find that one</Meta></div>
+            <Card><span className="t-body-md">{error}. Check the invite link, or start a new trip.</span></Card>
+            <div className="cta"><ButtonLink kind="primary" href="/new">Start a trip</ButtonLink></div>
+          </>
+        ) : (
+          <>
+            <div className="skeleton" style={{ height: 300, marginTop: 56, borderRadius: "var(--r-xl)" }} />
+            <Meta className="muted" aria-live="polite">opening your trip…</Meta>
+          </>
+        )}
+      </main>
     );
   }
 
   const ctx: Ctx = {
-    code, snap, me, run, toast,
-    go: setView,
+    code, snap, me, go, run,
+    apply: setSnap,
+    refresh: () => setTick((n) => n + 1),
     onJoined: (id, fresh) => { saveMemberId(code, id); setMeId(id); setSnap(fresh); },
   };
-  // Render as components (not plain calls) so each view keeps its own hooks.
-  const View = { invite: InviteView, onboard: OnboardView, ideas: IdeasView, crew: CrewView, plan: PlanView }[view];
 
-  return <Shell view={view} onNav={setView} toast={toastMsg} footerNote={`Trip ${code} · ${snap.ai.source === "gemini" ? "AI-estimated fares" : "sample fares"}`}><View key={view} {...ctx} /></Shell>;
+  const isHost = me?.id === snap.trip.hostMemberId;
+  // A friend who hasn't answered yet only gets the landing page and the questions, nothing else.
+  const gated = !me?.ready && view !== "invite" && view !== "answers";
+  const shown: View = gated ? "invite" : view;
+  const tabs = !!me?.ready && shown !== "answers";
+  const Screen = {
+    invite: isHost ? InviteScreen : LandingScreen, answers: AnswersScreen, vibe: VibeScreen, rank: RankScreen, plan: PlanScreen,
+  }[shown];
+
+  return (
+    <main className={`screen ${tabs ? "screen--tabs" : ""}`}>
+      <Screen key={shown} {...ctx} />
+      {tabs && (
+        <TabBar current={shown} tabs={[
+          { id: "invite", label: "Invite", icon: "ticket", onClick: () => go("invite") },
+          { id: "vibe", label: "Vibe", icon: "pulse", onClick: () => go("vibe") },
+          { id: "rank", label: "Rank", icon: "rank", onClick: () => go("rank") },
+          { id: "plan", label: "Plan", icon: "plan", onClick: () => go("plan") },
+        ]} />
+      )}
+    </main>
+  );
 }

@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Member, Trip, Vote } from "./types";
 
 /**
- * Storage interface. File-backed by default; MongoDB when MONGODB_URI is set.
+ * Storage interface, backed by a local JSON file (data/db.json).
  * The rest of the app only talks to this interface.
  */
 export interface Store {
@@ -81,56 +81,7 @@ const fileStore: Store = {
     }),
 };
 
-async function makeMongoStore(uri: string, dbName: string): Promise<Store> {
-  const { MongoClient } = await import("mongodb");
-  const client = await new MongoClient(uri).connect();
-  const db = client.db(dbName);
-  const trips = db.collection<Trip>("trips");
-  const members = db.collection<Member>("members");
-  const votes = db.collection<Vote>("votes");
-  const strip = <T extends object>(doc: (T & { _id?: unknown }) | null) => {
-    if (!doc) return null;
-    const { _id, ...rest } = doc;
-    void _id;
-    return rest as T;
-  };
-  return {
-    async createTrip(trip, host) {
-      await trips.insertOne({ ...trip });
-      await members.insertOne({ ...host });
-    },
-    async getTrip(code) {
-      return strip(await trips.findOne({ code }));
-    },
-    async updateTrip(code, patch) {
-      return strip(await trips.findOneAndUpdate({ code }, { $set: patch }, { returnDocument: "after" }));
-    },
-    async listMembers(code) {
-      return (await members.find({ tripCode: code }).toArray()).map((m) => strip(m)!);
-    },
-    async upsertMember(member) {
-      await members.replaceOne({ id: member.id }, member, { upsert: true });
-    },
-    async listVotes(code) {
-      return (await votes.find({ tripCode: code }).toArray()).map((v) => strip(v)!);
-    },
-    async setVote(vote) {
-      await votes.replaceOne({ tripCode: vote.tripCode, memberId: vote.memberId }, vote, { upsert: true });
-    },
-    async deleteVote(code, memberId) {
-      await votes.deleteOne({ tripCode: code, memberId });
-    },
-  };
-}
-
-const g = globalThis as unknown as { __store?: Promise<Store> };
-
+// Kept async so callers don't change if storage moves off the local file later.
 export function getStore(): Promise<Store> {
-  if (!g.__store) {
-    const uri = process.env.MONGODB_URI;
-    g.__store = uri
-      ? makeMongoStore(uri, process.env.MONGODB_DB || "elsewhere")
-      : Promise.resolve(fileStore);
-  }
-  return g.__store;
+  return Promise.resolve(fileStore);
 }

@@ -81,7 +81,7 @@ export async function api<T = Snapshot>(url: string, body?: unknown): Promise<T>
 
 // Who "you" are on this device. No account: the public id is for the crew, the token is the credential.
 export interface DeviceSession { v: 1; memberId: string; token: string }
-const sessionKey = (code: string) => `elsewhere:session:${code}`;
+const sessionKey = (code: string) => `tripflow:session:${code}`;
 export function loadSession(code: string): DeviceSession | null {
   try {
     const raw = localStorage.getItem(sessionKey(code));
@@ -94,7 +94,7 @@ export function loadSession(code: string): DeviceSession | null {
 export function saveSession(code: string, session: { memberId: string; token: string }) {
   try {
     localStorage.setItem(sessionKey(code), JSON.stringify({ v: 1, memberId: session.memberId, token: session.token } satisfies DeviceSession));
-    localStorage.removeItem(`elsewhere:member:${code}`);
+    localStorage.removeItem(`tripflow:member:${code}`);
   } catch { /* storage unavailable: session-only */ }
 }
 
@@ -103,7 +103,7 @@ export const hueVar = (m: { hue?: number }, fallbackIndex = 0) => `var(--ew-t${(
 
 // ---- Trips this device has opened, for the home page. Device-local, never sent anywhere.
 export interface RememberedTrip { code: string; title: string; at: string }
-const TRIPS_KEY = "elsewhere:trips";
+const TRIPS_KEY = "tripflow:trips";
 export const listTrips = (): RememberedTrip[] => {
   try { return JSON.parse(localStorage.getItem(TRIPS_KEY) ?? "[]") as RememberedTrip[]; } catch { return []; }
 };

@@ -100,7 +100,7 @@ export function PlanScreen(ctx: Ctx) {
   }
   function addToCalendar() {
     const ics = buildIcs({
-      uid: `${ctx.code}@elsewhere`, title: `${d!.name} trip`, location: `${d!.name}, ${d!.country}`,
+      uid: `${ctx.code}@tripflow`, title: `${d!.name} trip`, location: `${d!.name}, ${d!.country}`,
       start: m.start!, end: m.tripEnd!, description: `${t.title}. ${it?.summary ?? ""} ${tripLink(ctx.code)}`.trim(),
     });
     const url = URL.createObjectURL(new Blob([ics], { type: "text/calendar" }));

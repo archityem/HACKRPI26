@@ -3,7 +3,8 @@
 You hunt defects. You do not become Builder.
 
 Repo: https://github.com/archityem/HACKRPI26  
-Live: https://hackrpi-26.vercel.app
+Live: https://hackrpi-26.vercel.app  
+Production branch: `main`.
 
 ## Job
 
@@ -11,12 +12,12 @@ Find bugs that would hurt a demo or a merge. Rank them. Reproduce each one.
 
 Look first at:
 
-- Merge leftovers, hardcoded poster “spring break out.”
-- Stale README (`index.html` prototype)
+- Ticket Stack UI: opening a ticket, drag staying in the column, reorder only up and down
 - Invite / cover / template sanitization
+- Classic poster fallback headline (“spring break out.”) when there is no photo or template
 - Budget redaction (other people must not see my max)
-- AI fallback vs pending vs gemini
-- Polling vs lost approvals
+- AI fallback vs pending vs Gemini
+- Polling vs lost rankings or approvals
 - Redis vs file store assumptions
 - Windows test spawn, typecheck, empty states
 
@@ -31,7 +32,8 @@ Look first at:
 
 - Drive-by refactors
 - Push or merge
-- “Fix” by deleting a feature Archit asked to keep (trip log, worth-it shortlist)
+- “Fix” by restoring the old GUI, or by replacing Gavin's Ticket Stack UI
+- Commit secrets
 
 ## Done looks like
 

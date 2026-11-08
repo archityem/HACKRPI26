@@ -21,6 +21,8 @@ Group trips die in the group chat. One person floats a weekend, everyone replies
 5. **Rank 'em.** AI suggests places that fit the group's airports, dates and budgets. Tap a place to see its price and why it fits, drag to reorder, or suggest your own place and let AI price it. Lock in your ranking.
 6. **It's happening.** When everyone has locked in, the group's top pick becomes the plan. Everyone says "I'm in", votes on where to stay, and gets an AI-drafted itinerary they can edit and add to their calendar.
 
+For a layer-by-layer look at the system, see [Architecture](docs/ARCHITECTURE.md).
+
 ## Screenshots
 
 <table>

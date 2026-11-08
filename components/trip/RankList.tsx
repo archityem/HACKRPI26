@@ -1,13 +1,13 @@
 "use client";
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent, type Modifier } from "@dnd-kit/core";
-import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 import { Icon, Meta, Text } from "../ui";
 import { AIVerdictPill, Stub, TripTicket, placeTone, verdictText } from "./index";
 import { cn, col, rankBadge, rankHandle, rankHandleWrap, rankHit, rankItem, rankItemInner, rankItemRow, rankItemTicket, rankMain, rankName, rankNameText, rankPrice, rankRow, rankSpacer, rankTicket, row, ticketName, ticketTop, toneClass, why } from "../ui/tw";
 import type { Verdict } from "@/lib/rank";
-import { columnRankDelta } from "@/lib/rankDrag";
+import { RANK_DRAG_DISTANCE_PX, columnRankDelta, reorderRank } from "@/lib/rankDrag";
 
 // Applied to the drag delta itself (not only the painted style) so collision
 // detection and dnd-kit's layout compensation stay in the column with the card.
@@ -25,11 +25,11 @@ export interface RankItem {
 }
 
 interface Shared { month: string; source: "AI" | "Est."; travelers: number; meta: string }
-interface HandleProps { name: string; attrs: object; listeners: object | undefined; setRef: (el: HTMLElement | null) => void }
+interface HandleProps { name: string; attrs: object; setRef: (el: HTMLElement | null) => void }
 
-function Handle({ name, attrs, listeners, setRef }: HandleProps) {
+function Handle({ name, attrs, setRef }: HandleProps) {
   return (
-    <button type="button" ref={setRef} className={rankHandle} {...attrs} {...listeners} aria-label={`Drag to reorder ${name}. Or focus and press space, then use the arrow keys.`}>
+    <button type="button" ref={setRef} className={rankHandle} {...attrs} aria-label={`Drag to reorder ${name}. Or focus and press space, then use the arrow keys.`}>
       <Icon name="drag" size={20} stroke={2.4} />
     </button>
   );
@@ -87,12 +87,15 @@ function SortableRow({ item, index, shared, expanded, onToggle }: { item: RankIt
   // Y stays the pointer delta, which keeps the grab offset.
   const locked = transform ? columnRankDelta(transform) : null;
   const style = { transform: CSS.Translate.toString(locked), transition, zIndex: isDragging ? 3 : undefined, position: "relative" as const };
-  const live: HandleProps = { name: item.name, attrs: attributes, listeners, setRef: setActivatorNodeRef };
-  const idle: HandleProps = { name: item.name, attrs: {}, listeners: undefined, setRef: () => {} }; // only the visible look owns the drag handle
+  // The grip keeps keyboard focus. Pointer listeners live on the whole item, so a
+  // click-hold-drag on the card body picks the ticket up, not only the 44px handle.
+  // The activator stays the grip: Space starts a keyboard drag only from there.
+  const live: HandleProps = { name: item.name, attrs: attributes, setRef: setActivatorNodeRef };
+  const idle: HandleProps = { name: item.name, attrs: {}, setRef: () => {} }; // only the visible look owns the grip
   // Both looks stay mounted: the compact row shrinks while the ticket unfolds (and back), so opening and closing animate.
   // The hidden one is `inert`, so it can't be tabbed to or clicked.
   return (
-    <div ref={setNodeRef} style={style} className={rankItem} data-open={expanded ? "" : undefined}>
+    <div ref={setNodeRef} style={style} className={rankItem} data-open={expanded ? "" : undefined} {...listeners}>
       <div className={rankItemRow} inert={expanded}>
         <div className={rankItemInner}><CompactRow item={item} index={index} shared={shared} dragging={isDragging} onToggle={onToggle} handle={expanded ? idle : live} /></div>
       </div>
@@ -103,7 +106,7 @@ function SortableRow({ item, index, shared, expanded, onToggle }: { item: RankIt
   );
 }
 
-/** One place is open at a time (#1 to start). Opening one closes the other. Drag the handle — not the card — to reorder. */
+/** One place is open at a time (#1 to start). Opening one closes the other. Drag the ticket or its handle to reorder. */
 export function RankList({ items, onReorder, shared }: { items: RankItem[]; onReorder: (ids: string[]) => void; shared: Shared }) {
   const [openId, setOpenId] = useState<string | null>(() => items[0]?.id ?? null);
   const ids = items.map((item) => item.id);
@@ -111,14 +114,13 @@ export function RankList({ items, onReorder, shared }: { items: RankItem[]; onRe
   // Stay open during a drag. Closing the ticket would shift every row under the finger,
   // so the card would jump off the grab and drop where the cursor was instead of where the card is.
   const isOpen = (id: string) => openId === id;
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: RANK_DRAG_DISTANCE_PX } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   function toggle(id: string) {
     setOpenId((current) => (current === id ? null : id));
   }
   function end(e: DragEndEvent) {
-    const { active, over } = e;
-    if (!over || active.id === over.id) return;
-    onReorder(arrayMove(ids, ids.indexOf(String(active.id)), ids.indexOf(String(over.id))));
+    const next = reorderRank(ids, String(e.active.id), e.over ? String(e.over.id) : null);
+    if (next) onReorder(next);
   }
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={[lockRankDragToColumn]} autoScroll={{ layoutShiftCompensation: { x: false, y: true } }} onDragEnd={end}>

@@ -143,8 +143,8 @@ export const barsFill = "rounded-full bg-ink";
 export const crew = "flex items-center gap-3 border-b-2 border-dashed border-line py-2 last:border-b-0";
 export const crewText = "flex min-w-0 flex-1 flex-col gap-0.5 [&_[data-meta]]:text-muted";
 
-export const rankRow = "relative flex h-[52px] touch-pan-y items-center rounded-[20px] text-ink transition-transform duration-150 ease-spring data-dragging:z-3 data-dragging:-translate-y-1 data-dragging:scale-[1.02] data-new:animate-pop";
-export const rankMain = "flex h-full min-w-0 flex-1 cursor-pointer touch-pan-y appearance-none items-center gap-2.5 border-0 bg-transparent py-0 pr-2.5 pl-3 text-left text-inherit";
+export const rankRow = "relative flex h-[52px] touch-none items-center rounded-[20px] text-ink transition-transform duration-150 ease-spring data-dragging:z-3 data-dragging:-translate-y-1 data-dragging:scale-[1.02] data-new:animate-pop";
+export const rankMain = "flex h-full min-w-0 flex-1 cursor-pointer touch-none appearance-none items-center gap-2.5 border-0 bg-transparent py-0 pr-2.5 pl-3 text-left text-inherit";
 export const rankName = "flex min-w-0 flex-1 flex-col [&_[data-meta]]:text-[11px]";
 export const rankNameText = "overflow-hidden text-ellipsis whitespace-nowrap";
 export const rankPrice = "flex flex-col items-end whitespace-nowrap [&_[data-meta]]:text-[11px]";
@@ -155,7 +155,7 @@ export const rankItemRow = "grid grid-rows-[1fr] transition-[grid-template-rows]
 export const rankItemTicket = "grid grid-rows-[0fr] transition-[grid-template-rows] duration-[280ms] ease-settle group-data-[open]/item:grid-rows-[1fr]";
 export const rankItemInner = "min-h-0 overflow-hidden";
 export const rankTicket = "relative data-dragging:-translate-y-1 data-dragging:scale-[1.02]";
-export const rankHit = "absolute inset-0 z-[1] m-0 cursor-pointer touch-pan-y appearance-none rounded-xl border-0 bg-transparent p-0";
+export const rankHit = "absolute inset-0 z-[1] m-0 cursor-pointer touch-none appearance-none rounded-xl border-0 bg-transparent p-0";
 export const rankHandleWrap = "absolute top-5 right-5 z-[2] flex";
 export const rankSpacer = "size-11 shrink-0";
 

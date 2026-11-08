@@ -1,6 +1,8 @@
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
+import { groupOrder } from "../lib/rank.ts";
+import type { Vote } from "../lib/types.ts";
 
 // Integration test: boots the real Next server on a throwaway port and walks the full flow.
 const PORT = 3199;
@@ -224,6 +226,54 @@ test("retry: validates input, requires a ready member, 404s unknown trips", asyn
   assert.equal((await post(`${B}/nope00/retry`, { memberId: "x" })).status, 404);
   await post(`${B}/${c.code}/members`, { memberId: c.memberId, name: "A", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] }, c.token);
   assert.equal((await post(`${B}/${c.code}/retry`, { memberId: c.memberId }, c.token)).status, 200);
+});
+
+test("rank lock saves the order and proposes group #1 once everyone has locked", async () => {
+  const { body: c } = await j(await post(B, { hostName: "Maya", title: "Rank", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 2000, vibes: ["beach"] }));
+  await post(`${B}/${c.code}/members`, { memberId: c.memberId, name: "Maya", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 2000, prefs: ["beach"] }, c.token);
+  const leo = await j(await post(`${B}/${c.code}/members`, { name: "Leo", origin: "JFK", start: "2027-03-06", end: "2027-03-14", max: 2000, prefs: ["beach"] }));
+  const leoId = leo.body.memberId as string;
+  const ids: string[] = (await j(await get(`${B}/${c.code}`))).body.match.eligible.map((d: { id: string }) => d.id);
+  assert.ok(ids.length >= 3, `expected at least 3 suggestions, got ${ids.join(",")}`);
+  // Host puts the AI's #1 first. Leo puts that place last, so full rankings and "#1 only" disagree.
+  const hostRank = [...ids];
+  const leoRank = [...ids.slice(1), ids[0]];
+  const ready = [c.memberId as string, leoId];
+  const votes: Vote[] = [
+    { tripCode: c.code, memberId: c.memberId, destinationId: hostRank[0], ranking: hostRank, locked: true },
+    { tripCode: c.code, memberId: leoId, destinationId: leoRank[0], ranking: leoRank, locked: true },
+  ];
+  const fullWinner = groupOrder(votes, ids, ready)[0].id;
+  const headWinner = groupOrder(votes.map((v) => ({ ...v, ranking: undefined })), ids, ready)[0].id;
+  assert.notEqual(fullWinner, headWinner);
+
+  assert.equal((await post(`${B}/${c.code}/rank`, { memberId: c.memberId, ranking: hostRank, locked: true })).status, 401);
+  const first = await j(await post(`${B}/${c.code}/rank`, { memberId: c.memberId, ranking: hostRank, locked: true }, c.token));
+  assert.equal(first.status, 200);
+  assert.equal(first.body.trip.proposal, null);
+  const saved = first.body.votes.find((v: { memberId: string }) => v.memberId === c.memberId);
+  assert.equal(saved.locked, true);
+  assert.equal(saved.destinationId, hostRank[0]);
+  assert.deepEqual(saved.ranking, hostRank);
+
+  const reloaded = await j(await get(`${B}/${c.code}`));
+  const again = reloaded.body.votes.find((v: { memberId: string }) => v.memberId === c.memberId);
+  assert.equal(again.locked, true);
+  assert.deepEqual(again.ranking, hostRank);
+
+  const both = await j(await post(`${B}/${c.code}/rank`, { memberId: leoId, ranking: leoRank, locked: true }, leo.body.token));
+  assert.equal(both.status, 200);
+  assert.equal(both.body.trip.proposal, fullWinner);
+  assert.equal(both.body.votes.find((v: { memberId: string }) => v.memberId === leoId).locked, true);
+
+  const unlocked = await j(await post(`${B}/${c.code}/rank`, { memberId: c.memberId, ranking: hostRank, locked: false }, c.token));
+  assert.equal(unlocked.status, 200);
+  assert.equal(unlocked.body.trip.proposal, null);
+  assert.equal(unlocked.body.votes.find((v: { memberId: string }) => v.memberId === c.memberId).locked, false);
+  const after = await j(await get(`${B}/${c.code}`));
+  const hostVote = after.body.votes.find((v: { memberId: string }) => v.memberId === c.memberId);
+  assert.equal(hostVote.locked, false);
+  assert.deepEqual(hostVote.ranking, hostRank);
 });
 
 test("validation and not-found", async () => {

@@ -159,8 +159,15 @@ input[type="range"] { width: 100%; accent-color: var(--sage); margin: 4px 0; min
 .rankrow__price { display: flex; flex-direction: column; align-items: flex-end; white-space: nowrap; }
 .rankrow__price .t-meta { font-size: 11px; }
 .rankrow__handle { width: var(--tap); height: var(--tap); margin-right: 4px; border: 0; background: transparent; display: inline-flex; align-items: center; justify-content: center; padding: 0; touch-action: none; cursor: grab; flex: none; }
-.rankticket { position: relative; animation: rank-open 240ms var(--spring); }
-.rankticket[data-dragging] { animation: none; transform: translateY(-4px) scale(1.02); }
+/* One place = a compact row and a ticket, cross-resized: the row shrinks as the ticket unfolds, and back. */
+.rankitem__row, .rankitem__ticket { display: grid; transition: grid-template-rows 280ms var(--ease); }
+.rankitem__row { grid-template-rows: 1fr; }
+.rankitem__ticket { grid-template-rows: 0fr; }
+.rankitem[data-open] > .rankitem__row { grid-template-rows: 0fr; }
+.rankitem[data-open] > .rankitem__ticket { grid-template-rows: 1fr; }
+.rankitem__inner { min-height: 0; overflow: hidden; }
+.rankticket { position: relative; }
+.rankticket[data-dragging] { transform: translateY(-4px) scale(1.02); }
 .rankticket__spacer { width: var(--tap); height: var(--tap); flex: none; }
 .rankticket__hit { position: absolute; inset: 0; z-index: 1; border: 0; padding: 0; margin: 0; background: transparent; cursor: pointer; border-radius: var(--r-xl); touch-action: pan-y; }
 .rankticket__handle { position: absolute; top: 20px; right: 20px; z-index: 2; display: flex; }

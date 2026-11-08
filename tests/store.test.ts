@@ -131,6 +131,17 @@ for (const [name, make] of stores) {
       assert.equal((await s.listVotes("g2")).length, 1);
       await s.deleteVote("g1", "ghost"); // deleting a missing vote is harmless
     });
+    test("votes keep the full ranking and lock, and old plain-id votes still read", async () => {
+      const s = make();
+      await s.createTrip(trip("rk"), member("h-rk", "rk"));
+      await s.setVote({ tripCode: "rk", memberId: "a", destinationId: "miami", ranking: ["miami", "cancun"], locked: true });
+      await s.setVote({ tripCode: "rk", memberId: "b", destinationId: "cancun" });
+      const v = (await s.listVotes("rk")).sort((x, y) => x.memberId.localeCompare(y.memberId));
+      assert.deepEqual(v, [
+        { tripCode: "rk", memberId: "a", destinationId: "miami", ranking: ["miami", "cancun"], locked: true },
+        { tripCode: "rk", memberId: "b", destinationId: "cancun" },
+      ]);
+    });
     test("concurrent updates to different fields don't lose either", async () => {
       const s = make();
       await s.createTrip(trip("hhh"), member("h-hhh", "hhh"));

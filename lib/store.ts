@@ -147,6 +147,16 @@ function parseStored(v: unknown): unknown {
 const parseAll = <T>(h: Record<string, unknown>): T =>
   Object.fromEntries(Object.entries(h).map(([f, v]) => [f, parseStored(v)])) as T;
 
+/** A stored vote: a JSON object, or (older data) just the destination id. */
+function parseVote(code: string, memberId: string, raw: unknown): Vote {
+  const v = parseStored(raw);
+  if (v && typeof v === "object" && typeof (v as { destinationId?: unknown }).destinationId === "string") {
+    const o = v as { destinationId: string; ranking?: string[]; locked?: boolean };
+    return { tripCode: code, memberId, destinationId: o.destinationId, ...(o.ranking ? { ranking: o.ranking } : {}), ...(o.locked ? { locked: true } : {}) };
+  }
+  return { tripCode: code, memberId, destinationId: String(raw) };
+}
+
 export function makeRedisStore(r: RedisLike): Store {
   const readHash = async (key: string) => asHash(await r.hgetall(key));
   const getTrip = async (code: string) => {
@@ -176,11 +186,11 @@ export function makeRedisStore(r: RedisLike): Store {
     },
     async listVotes(code) {
       const h = await readHash(k.votes(code));
-      // Vote ids are raw strings, not JSON, so they are not parsed.
-      return h ? Object.entries(h).map(([memberId, v]) => ({ tripCode: code, memberId, destinationId: String(v) })) : [];
+      return h ? Object.entries(h).map(([memberId, v]) => parseVote(code, memberId, v)) : [];
     },
     async setVote(vote) {
-      await r.hset(k.votes(vote.tripCode), { [vote.memberId]: vote.destinationId });
+      // JSON, so the member's full ranking and lock survive. Older entries are just the destination id.
+      await r.hset(k.votes(vote.tripCode), { [vote.memberId]: JSON.stringify({ destinationId: vote.destinationId, ranking: vote.ranking, locked: vote.locked }) });
     },
     async deleteVote(code, memberId) {
       await r.hdel(k.votes(code), memberId);

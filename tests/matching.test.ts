@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
-import { compute, costs, effectiveMax, valueCall } from "../lib/matching.ts";
+import { compute, costs, dateUnlock, effectiveMax, valueCall } from "../lib/matching.ts";
 import { FIXTURE_DESTINATIONS as DESTS } from "../lib/destinations.ts";
 import type { Member, Trip } from "../lib/types.ts";
 
@@ -137,6 +137,71 @@ test("a member joining only narrows the options, never widens them", () => {
   const solo = new Set(ids(compute(trip(), [member("a")], DESTS)));
   const duo = ids(compute(trip(), [member("a"), member("b", { max: 700, deals: ["nonstop"] })], DESTS));
   assert.ok(duo.every((i) => solo.has(i)));
+});
+
+// ---------- Date gap: who can open a shared window ----------
+const person = (id: string, name: string, start: string, end: string) => ({ id, name, start, end });
+
+test("dateUnlock: already overlapping → null, nobody in → null", () => {
+  const t = trip();
+  assert.equal(dateUnlock(t, [person("a", "Maya", "2027-03-06", "2027-03-14")]), null);
+  assert.equal(dateUnlock(t, []), null);
+});
+
+test("dateUnlock: one short window can move either edge by exactly the shortfall", () => {
+  const u = dateUnlock(trip(), [person("a", "Maya", "2027-03-06", "2027-03-10")])!;
+  assert.equal(u.have, 4);
+  assert.equal(u.shortfall, 1);
+  assert.equal(u.windowTooShort, false);
+  assert.deepEqual(u.asks.map((a) => [a.edge, a.to, a.days]), [
+    ["later", "2027-03-11", 1],
+    ["earlier", "2027-03-05", 1],
+  ]);
+});
+
+test("dateUnlock: a move that leaves the host window is not offered", () => {
+  const u = dateUnlock(
+    trip({ windowStart: "2027-03-01", windowEnd: "2027-03-05", nights: 5 }),
+    [person("a", "Maya", "2027-03-01", "2027-03-04")],
+  )!;
+  assert.equal(u.windowTooShort, true);
+  assert.equal(u.windowNights, 4);
+  assert.deepEqual(u.asks, []);
+});
+
+test("dateUnlock: two people stuck on the same edge cannot fix it alone", () => {
+  const u = dateUnlock(trip(), [
+    person("maya", "Maya", "2027-03-01", "2027-03-04"),
+    person("leo", "Leo", "2027-03-01", "2027-03-04"),
+  ])!;
+  assert.equal(u.have, 3);
+  assert.equal(u.shortfall, 2);
+  assert.deepEqual(u.asks, []);
+});
+
+test("dateUnlock: names the person who can close a gap, and skips moves that do not", () => {
+  const u = dateUnlock(trip(), [
+    person("maya", "Maya", "2027-03-01", "2027-03-05"),
+    person("leo", "Leo", "2027-03-20", "2027-03-31"),
+  ])!;
+  assert.equal(u.have, 0);
+  assert.equal(u.shortfall, 20);
+  assert.deepEqual(u.asks.map((a) => [a.memberId, a.edge, a.from, a.to]), [
+    ["maya", "later", "2027-03-05", "2027-03-25"],
+  ]);
+});
+
+test("dateUnlock: either traveler can give the missing nights", () => {
+  const u = dateUnlock(trip(), [
+    person("maya", "Maya", "2027-03-01", "2027-03-12"),
+    person("leo", "Leo", "2027-03-10", "2027-03-20"),
+  ])!;
+  assert.equal(u.have, 2);
+  assert.equal(u.shortfall, 3);
+  assert.deepEqual(u.asks.map((a) => [a.name, a.edge, a.to]), [
+    ["Leo", "earlier", "2027-03-07"],
+    ["Maya", "later", "2027-03-15"],
+  ]);
 });
 
 // ---------- Parity with the prototype's original compute() ----------

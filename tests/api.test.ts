@@ -159,6 +159,22 @@ test("retry: validates input, requires a ready member, 404s unknown trips", asyn
   assert.equal((await post(`${B}/${c.code}/retry`, { memberId: c.memberId })).status, 200);
 });
 
+test("proposing the idea already on the table keeps the yeses", async () => {
+  const { body: c } = await j(await post(B, { hostName: "A", title: "T", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 3000 }));
+  await post(`${B}/${c.code}/members`, { memberId: c.memberId, name: "A", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] });
+  const leo = await j(await post(`${B}/${c.code}/members`, { name: "Leo", origin: "ALB", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] }));
+  const pick = leo.body.match.eligible[0].id;
+  const other = leo.body.match.eligible[1].id;
+  await post(`${B}/${c.code}/proposal`, { memberId: c.memberId, destinationId: pick });
+  await post(`${B}/${c.code}/approve`, { memberId: c.memberId });
+  const again = await j(await post(`${B}/${c.code}/proposal`, { memberId: c.memberId, destinationId: pick }));
+  assert.deepEqual(again.body.trip.approvals, [c.memberId]);
+  assert.equal(again.body.trip.proposal, pick);
+  const swapped = await j(await post(`${B}/${c.code}/proposal`, { memberId: leo.body.memberId, destinationId: other }));
+  assert.deepEqual(swapped.body.trip.approvals, []);
+  assert.equal(swapped.body.trip.proposal, other);
+});
+
 test("validation and not-found", async () => {
   assert.equal((await post(B, { hostName: "" })).status, 400);
   assert.equal((await post(B, { hostName: "A", title: "T", windowStart: "2027-03-10", windowEnd: "2027-03-01", nights: 5, maxBudget: 100 })).status, 400);

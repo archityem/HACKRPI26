@@ -15,8 +15,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
   const { memberId, destinationId } = parsed.data;
   const store = await getStore();
+  const trip = await store.getTrip(code);
+  if (!trip) return NextResponse.json({ error: "Trip not found" }, { status: 404 });
   if (!(await store.listMembers(code)).some((m) => m.id === memberId && m.ready))
     return NextResponse.json({ error: "Add your details first" }, { status: 403 });
+  // Proposing the idea already on the table again must not wipe the yeses already collected.
+  if (destinationId && destinationId === trip.proposal) return NextResponse.json(await snapshot(code, memberId));
   if (destinationId) {
     const snap = await snapshot(code, memberId);
     if (!snap?.match.eligible.some((d) => d.id === destinationId))

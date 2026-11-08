@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { buildIcs } from "../lib/ics.ts";
-import { inviteMessage, itineraryText, nudgeMessage } from "../lib/messages.ts";
+import { dateAskLine, dateAskMessage, dateUnlockHeadline, dateUnlockHint, inviteMessage, itineraryText, nudgeMessage } from "../lib/messages.ts";
 
 const base = { uid: "abc@elsewhere", title: "Cartagena", location: "Cartagena, Colombia", start: "2027-03-08", end: "2027-03-12", description: "Five days", now: new Date("2026-11-07T12:00:00Z") };
 
@@ -50,6 +50,22 @@ test("nudge message names people naturally", () => {
   assert.match(nudgeMessage({ title: "T", names: ["Leo", "Sam"], link: "l" }), /^Leo and Sam:/);
   assert.match(nudgeMessage({ title: "T", names: ["Leo", "Sam", "Ava"], link: "l" }), /^Leo, Sam, and Ava:/);
 });
+test("date gap copy names the move and stays quiet about budget", () => {
+  const ask = { memberId: "maya", name: "Maya", edge: "later" as const, to: "2027-03-13", days: 3 };
+  assert.equal(dateAskLine(ask), "Maya could be free through Mar 13 (3 days later).");
+  assert.equal(dateAskLine(ask, "maya"), "You could be free through Mar 13 (3 days later).");
+  assert.equal(dateAskLine({ ...ask, edge: "earlier", days: 1, to: "2027-03-05" }), "Maya could start on Mar 5 (1 day earlier).");
+  assert.match(dateUnlockHeadline({ have: 4, need: 5, shortfall: 1, windowTooShort: false, windowNights: 30 }), /4 nights overlap so far\. 1 more night/);
+  assert.match(dateUnlockHeadline({ have: 0, need: 5, shortfall: 20, windowTooShort: false, windowNights: 30 }), /20 days of movement/);
+  assert.match(dateUnlockHeadline({ have: 0, need: 5, shortfall: 5, windowTooShort: true, windowNights: 3 }), /only cover 3 nights/);
+  const hint = dateUnlockHint({ have: 4, need: 5, shortfall: 1, windowTooShort: false, windowNights: 30, asks: [ask, { memberId: "leo", name: "Leo", edge: "earlier", to: "2027-03-05", days: 1 }] }, "leo");
+  assert.match(hint, /^You could start on Mar 5/);
+  const msg = dateAskMessage({ title: "Spring", nights: 5, shortfall: 3, windowTooShort: false, asks: [ask], link: "https://x.app/t/abc" });
+  assert.match(msg, /Maya staying through Mar 13/);
+  assert.ok(msg.endsWith("https://x.app/t/abc"));
+  assert.equal(msg.includes("$"), false);
+});
+
 test("itinerary text lists every day and the tips", () => {
   const text = itineraryText({
     destination: "Cartagena", start: "2027-03-08", end: "2027-03-12",

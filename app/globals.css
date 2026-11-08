@@ -84,3 +84,15 @@ body{background:#fbf9f4}
 #elsewhere-app .ew-trips{display:grid;border-top:1px solid var(--ew-line);width:min(520px,100%);text-align:left;margin-top:8px}
 #elsewhere-app .ew-trips a{display:flex;justify-content:space-between;gap:12px;padding:12px 2px;border-bottom:1px solid var(--ew-line);text-decoration:none;color:inherit}
 #elsewhere-app .ew-trips a:hover strong{text-decoration:underline}
+#elsewhere-app .ew-split-wrap{display:grid;gap:6px}
+#elsewhere-app .ew-split{list-style:none;margin:0;padding:10px 12px;display:grid;gap:5px;font-size:12px;background:var(--ew-soft);border-radius:12px}
+#elsewhere-app .ew-split li{display:flex;justify-content:space-between;gap:10px;align-items:baseline}
+#elsewhere-app .ew-split li[data-you] span:first-child{font-weight:700}
+#elsewhere-app .ew-split small{color:var(--ew-muted);font-weight:400;margin-left:4px}
+#elsewhere-app .ew-split-note{font-size:11px}
+#elsewhere-app .ew-propose{text-align:left}
+#elsewhere-app .ew-gap{display:grid;gap:8px;text-align:left}
+#elsewhere-app .ew-gap ul{margin:0;padding-left:18px;display:grid;gap:4px}
+#elsewhere-app .ew-gap p{margin:0;font-size:12px;line-height:1.5}
+#elsewhere-app .ew-empty .ew-gap{width:min(440px,100%)}
+#elsewhere-app .ew-avail-foot .ew-gap p{margin:0}

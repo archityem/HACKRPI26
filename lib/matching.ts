@@ -67,15 +67,119 @@ export interface MatchResult {
   excluded: Suggestion[];
 }
 
+export interface SharedWindow {
+  start: string;
+  end: string;
+  /** Nights that fit between start and end. Negative when the dates never meet. */
+  span: number;
+}
+
+/** Latest start to earliest end, clamped to the host's window. */
+export function sharedWindow(
+  trip: { windowStart: string; windowEnd: string },
+  people: { start: string; end: string }[],
+): SharedWindow {
+  const start = [trip.windowStart, ...people.map((m) => m.start)].sort().at(-1)!;
+  const end = [trip.windowEnd, ...people.map((m) => m.end)].sort()[0];
+  return { start, end, span: diffDays(start, end) };
+}
+
+export interface DatedPerson {
+  id: string;
+  name: string;
+  start: string;
+  end: string;
+}
+
+export interface DateAsk {
+  memberId: string;
+  name: string;
+  edge: "earlier" | "later";
+  from: string;
+  to: string;
+  days: number;
+}
+
+export interface DateUnlock {
+  start: string;
+  end: string;
+  /** Nights that currently fit. 0 when the dates do not meet. */
+  have: number;
+  need: number;
+  /** Days of movement a single binding edge needs. Larger than `need` when the dates do not meet. */
+  shortfall: number;
+  /** Nights the host window itself can hold. */
+  windowNights: number;
+  windowTooShort: boolean;
+  /** One-person changes that open the trip. Each move is exactly `shortfall` days; anything smaller still misses. */
+  asks: DateAsk[];
+}
+
+/**
+ * When the ready dates cannot hold the trip, the smallest one-person changes that would.
+ * Returns null when the dates already fit, or when nobody is in yet.
+ * A change that would leave the host window is omitted — partial moves are not offered.
+ */
+export function dateUnlock(
+  trip: { windowStart: string; windowEnd: string; nights: number },
+  people: DatedPerson[],
+): DateUnlock | null {
+  if (!people.length) return null;
+  const window = sharedWindow(trip, people);
+  if (window.span >= trip.nights) return null;
+  const shortfall = trip.nights - window.span;
+  const windowNights = diffDays(trip.windowStart, trip.windowEnd);
+  const asks: DateAsk[] = [];
+  for (const person of people) {
+    for (const edge of ["later", "earlier"] as const) {
+      const ask = askIfOpens(trip, people, person, edge, shortfall);
+      if (ask) asks.push(ask);
+    }
+  }
+  asks.sort((a, b) => a.days - b.days || a.name.localeCompare(b.name) || (a.edge === b.edge ? 0 : a.edge === "later" ? -1 : 1));
+  return {
+    start: window.start,
+    end: window.end,
+    have: Math.max(0, window.span),
+    need: trip.nights,
+    shortfall,
+    windowNights,
+    windowTooShort: windowNights < trip.nights,
+    asks,
+  };
+}
+
+function askIfOpens(
+  trip: { windowStart: string; windowEnd: string; nights: number },
+  people: DatedPerson[],
+  person: DatedPerson,
+  edge: "earlier" | "later",
+  days: number,
+): DateAsk | null {
+  const to = edge === "later" ? addDays(person.end, days) : addDays(person.start, -days);
+  if (edge === "later" ? to > trip.windowEnd : to < trip.windowStart) return null;
+  const next = people.map((p) =>
+    p.id === person.id ? { ...p, ...(edge === "later" ? { end: to } : { start: to }) } : p,
+  );
+  if (sharedWindow(trip, next).span < trip.nights) return null;
+  return {
+    memberId: person.id,
+    name: person.name,
+    edge,
+    from: edge === "later" ? person.end : person.start,
+    to,
+    days,
+  };
+}
+
 export function compute(trip: Trip, members: Member[], destinations: Destination[]): MatchResult {
   const ready = members.filter((m) => m.ready);
   const empty: MatchResult = { ready, start: null, end: null, tripEnd: null, overlap: false, eligible: [], excluded: [] };
   if (!ready.length) return empty;
 
   // Date overlap: latest start to earliest end, clamped to the host's window.
-  const start = [trip.windowStart, ...ready.map((m) => m.start)].sort().at(-1)!;
-  const end = [trip.windowEnd, ...ready.map((m) => m.end)].sort()[0];
-  const overlap = diffDays(start, end) >= trip.nights;
+  const { start, end, span } = sharedWindow(trip, ready);
+  const overlap = span >= trip.nights;
   const tripEnd = addDays(start, trip.nights);
   if (!overlap) return { ...empty, start, end, tripEnd };
 

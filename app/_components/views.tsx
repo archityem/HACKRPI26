@@ -1,15 +1,15 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import type { Suggestion } from "@/lib/matching";
+import { dateUnlock, sharedWindow, type Suggestion } from "@/lib/matching";
 import {
   AIRPORTS, DEALS, PASSPORT, PREFS, airportsFor, api, dayDiff, dealsWithPassport, inviteBlurb, money, passportFrom,
   prefLabel, range, short, type PublicMember, type Snapshot,
 } from "@/lib/client";
 import { FONT_STACK, contrast, type InviteTemplate } from "@/lib/template";
 import { buildIcs } from "@/lib/ics";
-import { inviteMessage, itineraryText, nudgeMessage } from "@/lib/messages";
+import { dateUnlockHint, inviteMessage, itineraryText, nudgeMessage } from "@/lib/messages";
 import type { Deal } from "@/lib/types";
-import { AvailabilityStrip } from "./AvailabilityStrip";
+import { AvailabilityStrip, DateGap } from "./AvailabilityStrip";
 import { Btn, type View } from "./Shell";
 
 export interface Ctx {
@@ -107,6 +107,33 @@ export function Poster({ theme, photo, template }: { theme: string; photo?: stri
 const ART_PALETTES = ["sanjuan", "cancun", "miami", "lisbon", "costarica"];
 const artFor = (id: string) =>
   ART_PALETTES.includes(id) ? id : ART_PALETTES[[...id].reduce((n, c) => n + c.charCodeAt(0), 0) % ART_PALETTES.length];
+
+/** Estimated totals from each airport. Budget caps are not included — those stay on each person's own screen. */
+function CostSplit({ people, perMember, meId }: {
+  people: { id: string; name: string; origin: string }[];
+  perMember: Record<string, { total: number } | undefined>;
+  meId?: string;
+}) {
+  const rows = people.flatMap((p) => {
+    const total = perMember[p.id]?.total;
+    return total == null ? [] : [{ ...p, total }];
+  });
+  if (rows.length < 2) return null;
+  const spread = Math.max(...rows.map((r) => r.total)) - Math.min(...rows.map((r) => r.total));
+  return (
+    <div className="ew-split-wrap">
+      <ul className="ew-split" aria-label="Estimated cost for each traveler">
+        {rows.map((r) => (
+          <li key={r.id} data-you={r.id === meId ? "" : undefined}>
+            <span>{r.id === meId ? "You" : r.name}</span>
+            <span>{money(r.total)} <small>from {r.origin}</small></span>
+          </li>
+        ))}
+      </ul>
+      {spread > 0 && <p className="ew-note ew-split-note">{money(spread)} between the lowest and highest estimate.</p>}
+    </div>
+  );
+}
 
 function Art({ d }: { d: Suggestion }) {
   return (
@@ -218,13 +245,19 @@ export function OnboardView(ctx: Ctx) {
   // Live preview: only dates are public, so preview the date overlap with everyone already in.
   const fit = useMemo(() => {
     if (!d.start || !d.end) return "";
-    const others = snap.members.filter((m) => m.ready && m.id !== me?.id);
-    const start = [t.windowStart, d.start, ...others.map((m) => m.start)].sort().at(-1)!;
-    const end = [t.windowEnd, d.end, ...others.map((m) => m.end)].sort()[0];
-    return dayDiff(start, end) >= t.nights
-      ? `${range(start, end)} works for everyone so far.`
-      : `The dates don’t overlap for ${t.nights} nights yet.`;
-  }, [d.start, d.end, snap.members, me?.id, t]);
+    if (d.end < d.start) return "Your return date should be after your start date.";
+    const meId = me?.id ?? "draft";
+    const people = [
+      ...snap.members.filter((m) => m.ready && m.id !== me?.id).map((m) => ({ id: m.id, name: m.name, start: m.start, end: m.end })),
+      { id: meId, name: d.name.trim() || "You", start: d.start, end: d.end },
+    ];
+    const unlock = dateUnlock(t, people);
+    if (!unlock) {
+      const w = sharedWindow(t, people);
+      return `${range(w.start, w.end)} works for everyone so far.`;
+    }
+    return dateUnlockHint(unlock, meId);
+  }, [d.start, d.end, d.name, snap.members, me?.id, t]);
 
   function validate(): string {
     if (step === 0) {
@@ -285,6 +318,7 @@ export function OnboardView(ctx: Ctx) {
         <p className="ew-note">{PASSPORT.find((p) => p.id === d.passport)?.hint}. We’ll keep destinations that don’t work off the list.</p>
       </div>
       <p className="ew-note">Exact break dates work too. These are the days you’re free, not a booking commitment.</p>
+      {fit && <p className="ew-note" aria-live="polite"><strong>{fit}</strong></p>}
     </>
   );
   else if (step === 1) form = (
@@ -331,7 +365,7 @@ export function OnboardView(ctx: Ctx) {
         <div className="ew-step-list">{steps.map((s, i) => (
           <div key={s} className={`ew-step-item ${i === step ? "active" : ""}`} aria-current={i === step ? "step" : undefined}><span className="ew-step-num">{i < step ? "✓" : i + 1}</span>{s}</div>
         ))}</div>
-        <div className="ew-preview"><strong>✳ The crew is taking shape</strong><div aria-live="polite" style={{ marginTop: 6 }}>{fit}</div></div>
+        <div className="ew-preview"><strong>✳ The crew is taking shape</strong><div style={{ marginTop: 6 }}>{fit}</div></div>
       </aside>
       <section className="ew-form" aria-label={steps[step]}>
         {form}
@@ -356,8 +390,20 @@ export function IdeasView(ctx: Ctx) {
   const myVote = snap.votes.find((v) => v.memberId === me?.id)?.destinationId;
   const nameOf = (id: string) => snap.members.find((x) => x.id === id)?.name ?? "";
 
+  const readyPeople = snap.members.filter((x) => x.ready);
+  const dateGap = !m.overlap && m.readyCount
+    ? dateUnlock(snap.trip, readyPeople.map((x) => ({ id: x.id, name: x.name, start: x.start, end: x.end })))
+    : null;
   const vote = (id: string) => ctx.run(() => api(`/api/trips/${ctx.code}/vote`, { memberId: me!.id, destinationId: id }));
-  const propose = async (id: string) => { if (await ctx.run(() => api(`/api/trips/${ctx.code}/proposal`, { memberId: me!.id, destinationId: id }))) ctx.go("plan"); };
+  const propose = async (id: string) => {
+    if (snap.trip.proposal === id) return ctx.go("plan");
+    const replacing = !!snap.trip.proposal && snap.trip.approvals.length > 0;
+    const ok = await ctx.run(
+      () => api(`/api/trips/${ctx.code}/proposal`, { memberId: me!.id, destinationId: id }),
+      replacing ? "New proposal. Earlier yeses were cleared." : "Proposed. The plan is ready for everyone’s yes.",
+    );
+    if (ok) ctx.go("plan");
+  };
 
   let cards;
   if (m.overlap && m.eligible.length) {
@@ -371,7 +417,7 @@ export function IdeasView(ctx: Ctx) {
             <Art d={d} />
             <div className="ew-dest-body">
               <div className="ew-row" style={{ justifyContent: "space-between", gap: 5 }}>
-                <span className="ew-badge">{i === 0 ? "✳ Best group fit" : "↗ In the running"}</span>
+                <span className="ew-badge">{snap.trip.proposal === d.id ? "✳ Up for approval" : i === 0 ? "✳ Best group fit" : "↗ In the running"}</span>
                 <span className="ew-small ew-muted">{voters.length} {voters.length === 1 ? "vote" : "votes"}</span>
               </div>
               <div><h3>{d.name}</h3><p className="ew-note" style={{ marginTop: 4 }}>{d.caption}</p></div>
@@ -379,10 +425,16 @@ export function IdeasView(ctx: Ctx) {
               <div className="ew-price">{money(mine ? mine.total : avg)} <small>/ person {mine ? `from ${me!.origin}` : "(group average)"}</small></div>
               <p className="ew-note">{d.valueWhy}</p>
               {mine && <div className="ew-cost-breakdown">✈ {money(mine.flight)} flight &nbsp; · &nbsp; ⌂ {money(mine.stay)} stay<br />+ {money(mine.daily)} daily spend · {range(m.start!, m.tripEnd!)}</div>}
+              <CostSplit people={readyPeople} perMember={d.perMember} meId={me?.id} />
               <div className="ew-cost-breakdown">Group total {money(d.groupTotal)} · about {money(avg)} each · {m.readyCount} {m.readyCount === 1 ? "traveler" : "travelers"}</div>
               <div className="ew-match">✓ Within every submitted budget<br />✓ {d.matched.map(prefLabel).slice(0, 3).join(" · ") || "Meets your requirements"}</div>
               <Btn kind="ew-vote" aria-pressed={myVote === d.id} disabled={!me?.ready} onClick={() => vote(d.id)}>{myVote === d.id ? "✓ Your vote" : "This gets my vote"}</Btn>
               <div className="ew-voters">{voters.length ? voters.map((v) => nameOf(v.memberId)).join(" + ") + " voted" : "Be the first to vote"}</div>
+              {pending.length === 0 && me?.ready && (
+                <button type="button" className="ew-link ew-propose" onClick={() => propose(d.id)}>
+                  {snap.trip.proposal === d.id ? "Up for approval · see the plan" : "Propose this for approval"}
+                </button>
+              )}
             </div>
           </article>
         );
@@ -404,7 +456,13 @@ export function IdeasView(ctx: Ctx) {
       <div className="ew-empty">
         <span className="ew-empty-icon">☁</span>
         <h2>{!m.overlap && m.readyCount ? "Let’s find some common ground." : m.readyCount ? "A little adjustment could go a long way." : "No one’s added details yet."}</h2>
-        <p>{!m.readyCount ? "Add your details to see the first ideas." : !m.overlap ? `There isn’t a shared ${snap.trip.nights}-night window yet. Review the crew’s dates, or edit your availability.` : "None of the trips we found meet every budget and dealbreaker. Review the reasons below, then choose what you’re comfortable changing."}</p>
+        <p>{!m.readyCount ? "Add your details to see the first ideas." : !m.overlap ? "Nobody’s dates change unless that person edits them." : "None of the trips we found meet every budget and dealbreaker. Review the reasons below, then choose what you’re comfortable changing."}</p>
+        {dateGap && (
+          <DateGap
+            unlock={dateGap} meId={me?.id} title={snap.trip.title} link={linkFor(ctx.code)}
+            onCopy={(text) => copyText(text, ctx, "Date note copied. Paste it in the group chat.")}
+          />
+        )}
         <Btn kind="ew-primary" onClick={() => ctx.go(m.readyCount ? "crew" : "onboard")}>{m.readyCount ? "Review the crew" : "Add my details"}</Btn>
       </div>
     );
@@ -421,7 +479,7 @@ export function IdeasView(ctx: Ctx) {
         <span className="ew-badge"><span className="ew-dot" /> {snap.ai.source === "pending" ? "Finding ideas…" : `${m.eligible.length} matching ideas`}</span>
       </div>
       <Summary ctx={ctx} />
-      <p className="ew-note" style={{ margin: "-9px 0 17px" }}>{snap.ai.source === "gemini" ? "AI-estimated fares & lodging (not live prices)" : "Illustrative fares & lodging estimates"} · totals include {snap.trip.nights} nights and daily spending.</p>
+      <p className="ew-note" style={{ margin: "-9px 0 17px" }}>{snap.ai.source === "gemini" ? "AI-estimated fares & lodging (not live prices)" : "Illustrative fares & lodging estimates"} · totals include {snap.trip.nights} nights and daily spending.{readyPeople.length > 1 ? " Budget caps stay on each person’s own screen." : ""}</p>
       {!me?.ready && (
         <div className="ew-proposal" style={{ margin: "0 0 20px" }}>
           <div><strong>Your preferences are missing.</strong><p>Add your details to shape these ideas and join the vote.</p></div>
@@ -441,7 +499,7 @@ export function IdeasView(ctx: Ctx) {
             <strong>{pending.length ? `Still saving a seat for ${pending.map((x) => x.name).join(", ")}` : `Feeling good about ${lead.name}?`}</strong>
             <p>{pending.length ? "Everyone adds their preferences before the group confirms a plan." : "Voting picks the favorite. Each traveler still gets a final say."}</p>
           </div>
-          <Btn kind="ew-primary" disabled={!!pending.length || !me?.ready} onClick={() => propose(lead.id)}>Propose {lead.name} →</Btn>
+          <Btn kind="ew-primary" disabled={!!pending.length || !me?.ready} onClick={() => propose(lead.id)}>{snap.trip.proposal === lead.id ? `Review ${lead.name} →` : `Propose ${lead.name} →`}</Btn>
         </div>
       )}
       {m.excluded.length > 0 && (
@@ -473,6 +531,8 @@ export function CrewView(ctx: Ctx) {
       <AvailabilityStrip
         members={snap.members} windowStart={t.windowStart} windowEnd={t.windowEnd} nights={t.nights}
         shared={m.overlap && m.start && m.end ? { start: m.start, end: m.end } : null}
+        meId={me?.id} title={t.title} link={link}
+        onCopy={(text) => copyText(text, ctx, "Date note copied. Paste it in the group chat.")}
       />
       <div className="ew-member-list">{snap.members.map((x) => (
         <article className="ew-member" key={x.id}>
@@ -665,6 +725,7 @@ export function PlanView(ctx: Ctx) {
             <h3>{range(m.start, m.tripEnd)} · {snap.trip.nights} nights</h3>
             {mine && <><div className="ew-price">{money(mine.total)} <small>your estimated total from {me!.origin}</small></div>
               <p className="ew-note">{money(mine.flight)} round-trip flight + {money(mine.stay)} shared stay + {money(mine.daily)} daily spending.</p></>}
+            <CostSplit people={ready} perMember={d.perMember} meId={me?.id} />
             <p className="ew-note">Sample prices. Final quotes and payment approval come later.</p>
           </div>
         </div>

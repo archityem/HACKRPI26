@@ -223,7 +223,7 @@ export function RankScreen(ctx: Ctx) {
       </div>
       <div className="titleblock">
         <Text as="h1" variant="display-lg">rank ’em</Text>
-        <Meta>{leader ? `Tap to open · group #1 so far: ${leader.name}` : "Tap to open · drag the handle to reorder"}</Meta>
+        <Meta>{leader ? `Tap the lines to open · group #1 so far: ${leader.name}` : "Tap the lines to open · drag them to reorder"}</Meta>
       </div>
       {body}
       <ProposeSheet ctx={ctx} open={propose} onClose={() => setPropose(false)} />

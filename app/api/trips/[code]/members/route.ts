@@ -19,7 +19,7 @@ const Body = z
     start: date,
     end: date,
     min: z.number().min(0).default(0),
-    max: z.number().positive().max(100_000),
+    max: z.number().positive().max(1_000_000),
     prefs: z.array(z.string()).min(1),
     deals: z.array(z.enum(["nonstop", "domestic", "short", "red-eye"])).default([]),
   })

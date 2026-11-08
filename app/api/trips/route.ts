@@ -22,7 +22,7 @@ const Body = z
     windowStart: date,
     windowEnd: date,
     nights: z.number().int().min(1).max(30),
-    maxBudget: z.number().positive().max(100_000),
+    maxBudget: z.number().positive().max(1_000_000),
     vibes: z.array(z.string()).max(2).default([]),
   })
   .refine((b) => b.windowEnd >= b.windowStart, { message: "windowEnd must be on/after windowStart" });

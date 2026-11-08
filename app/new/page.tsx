@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { PREFS, api, dayDiff, money, rememberTrip, saveSession } from "@/lib/client";
 import { Button, Card, Chip, Field, Icon, IconButton, Meta, Text } from "@/components/ui";
 import { prefShort } from "../_components/common";
+import { CustomAmount } from "../_components/CustomAmount";
 
 const LENGTHS: [number, string][] = [[3, "2–3 nights"], [5, "4–5 nights"], [7, "A week"]];
 
@@ -23,6 +24,7 @@ export default function NewTrip() {
     if (!f.windowStart || !f.windowEnd || f.windowEnd < f.windowStart) return setError("Choose dates that end after they start.");
     if (dayDiff(f.windowStart, f.windowEnd) < f.nights) return setError(`Your dates need room for ${f.nights} nights.`);
     if (!(f.maxBudget > 0)) return setError("Set a budget above $0.");
+    if (f.maxBudget > 1_000_000) return setError("Keep the budget at $1,000,000 or less.");
     setBusy(true);
     try {
       const r = await api<{ code: string; memberId: string; token: string }>("/api/trips", {
@@ -66,7 +68,8 @@ export default function NewTrip() {
       <Card tone="dusk">
         <div className="row row--between"><label htmlFor="budget" className="t-meta">Max budget / person</label><Meta>Ceiling</Meta></div>
         <Text variant="numeral-lg" className="q__big">{money(f.maxBudget)}</Text>
-        <input id="budget" type="range" min={200} max={3000} step={50} value={f.maxBudget} onChange={(e) => set({ maxBudget: Number(e.target.value) })} />
+        <input id="budget" type="range" min={0} max={5000} step={50} value={Math.min(f.maxBudget, 5000)} onChange={(e) => set({ maxBudget: Number(e.target.value) })} />
+        <CustomAmount id="budget-custom" value={f.maxBudget} onChange={(n) => set({ maxBudget: n })} />
         <span style={{ fontSize: 13, lineHeight: 1.35 }}>Can go down later, never up. Flights, stay and daily spending all count.</span>
       </Card>
 

@@ -1,6 +1,6 @@
 import type { Destination, Member, Trip } from "./types";
 
-// Ported from prototype/elsewhere.html compute()/costs(), generalized to N members and trip.nights.
+// Date overlap, per-member costs, deal-breakers, and preference ranking.
 
 const DAY = 86_400_000;
 const day = (d: string) => new Date(d + "T12:00:00Z");

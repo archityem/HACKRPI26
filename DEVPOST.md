@@ -1,6 +1,6 @@
 # Project name
 
-Elsewhere
+Tripflow
 
 # Elevator pitch
 
@@ -8,7 +8,7 @@ A no-login group trip planner. Share a link, rank destinations together, and get
 
 # About the project
 
-Group trips stall in the group chat. One person floats a weekend, three friends answer with different dates, and the thread goes quiet before anyone agrees on a place. Elsewhere is a no-login planner for that moment. The live app is at https://hackrpi-26.vercel.app.
+Group trips stall in the group chat. One person floats a weekend, three friends answer with different dates, and the thread goes quiet before anyone agrees on a place. Tripflow is a no-login planner for that moment. The live app is at https://hackrpi-26.vercel.app.
 
 One person starts a trip and shares an invite link or a short code. Friends open it on their own phones and join without creating an account. There is no password and no email sign-up. A device token ties each phone to the person who joined, so the same friend can come back to the trip later and only act as themselves.
 
@@ -20,7 +20,7 @@ The screens you move through are Plan, Invite, Rank, Answers, and Vibe. Plan is 
 
 ## How we built it
 
-Elsewhere is a Next.js 16 and React 19 app written in TypeScript and styled with Tailwind v4. It is deployed on Vercel. Trip state — members, answers, rankings, and the locked plan — lives in Upstash Redis, so a link opened on another phone sees the same trip. Destination ideas and the itinerary come from the Gemini API through `@google/genai`. The ranking stack uses dnd-kit for drag and reorder. Request payloads are checked with zod. There is no login: each device holds a private token, and the server accepts an action only from the member that token belongs to.
+Tripflow is a Next.js 16 and React 19 app written in TypeScript and styled with Tailwind v4. It is deployed on Vercel. Trip state — members, answers, rankings, and the locked plan — lives in Upstash Redis, so a link opened on another phone sees the same trip. Destination ideas and the itinerary come from the Gemini API through `@google/genai`. The ranking stack uses dnd-kit for drag and reorder. Request payloads are checked with zod. There is no login: each device holds a private token, and the server accepts an action only from the member that token belongs to.
 
 ## Challenges we ran into
 

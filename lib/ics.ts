@@ -38,7 +38,7 @@ export function buildIcs(i: IcsInput): string {
   const lines = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
-    "PRODID:-//Elsewhere//Group trip//EN",
+    "PRODID:-//Tripflow//Group trip//EN",
     "CALSCALE:GREGORIAN",
     "BEGIN:VEVENT",
     `UID:${i.uid}`,

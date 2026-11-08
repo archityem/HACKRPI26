@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import "./globals.css";
 
-export const metadata = { title: "Elsewhere", description: "Plan a group trip everyone can say yes to.", manifest: "/manifest.webmanifest" };
+export const metadata = { title: "Tripflow", description: "Plan a group trip everyone can say yes to.", manifest: "/manifest.webmanifest" };
 export const viewport = { themeColor: "#F4F0E8", width: "device-width", initialScale: 1 };
 
 // Archivo (display), Inter (UI) and Space Mono (meta) are the design fonts. The rest are only for the host's

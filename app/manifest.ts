@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 // "Get the app" installs the web app to the home screen: same trip link, same answers, no account.
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Elsewhere",
-    short_name: "Elsewhere",
+    name: "Tripflow",
+    short_name: "Tripflow",
     description: "Plan a group trip everyone can say yes to.",
     start_url: "/",
     display: "standalone",

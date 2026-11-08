@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PREFS, api, dayDiff, money, rememberTrip, saveSession } from "@/lib/client";
 import { Button, Card, Chip, Field, Icon, IconButton, Meta, Text } from "@/components/ui";
-import { chips, cn, cta, dates, err, hint13, iconSpacer, rangeInput, row, screen, titleblock, topbar, type } from "@/components/ui/tw";
+import { chips, cn, cta, dates, err, iconSpacer, rangeInput, row, screen, titleblock, topbar, type } from "@/components/ui/tw";
 import { prefShort } from "../_components/common";
 import { EditableAmount } from "../_components/EditableAmount";
 

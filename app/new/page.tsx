@@ -3,9 +3,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PREFS, api, dayDiff, money, rememberTrip, saveSession } from "@/lib/client";
 import { Button, Card, Chip, Field, Icon, IconButton, Meta, Text } from "@/components/ui";
-import { chips, cn, cta, dates, err, hint13, iconSpacer, qBig, rangeInput, row, screen, titleblock, topbar, type } from "@/components/ui/tw";
+import { chips, cn, cta, dates, err, hint13, iconSpacer, rangeInput, row, screen, titleblock, topbar, type } from "@/components/ui/tw";
 import { prefShort } from "../_components/common";
-import { CustomAmount } from "../_components/CustomAmount";
+import { EditableAmount } from "../_components/EditableAmount";
 
 const LENGTHS: [number, string][] = [[3, "2–3 nights"], [5, "4–5 nights"], [7, "A week"]];
 
@@ -68,10 +68,9 @@ export default function NewTrip() {
 
       <Card tone="dusk">
         <div className={cn(row, "justify-between")}><label htmlFor="budget" className={type.meta}>Max budget / person</label><Meta>Ceiling</Meta></div>
-        <Text variant="numeral-lg" className={qBig}>{money(f.maxBudget)}</Text>
+        <EditableAmount id="budget-amount" label="Max budget per person, in dollars. Type your own amount." size="numeral-lg" value={f.maxBudget} onChange={(n) => set({ maxBudget: n })} />
         <input id="budget" className={rangeInput} type="range" min={0} max={5000} step={50} value={Math.min(f.maxBudget, 5000)} onChange={(e) => set({ maxBudget: Number(e.target.value) })} />
-        <CustomAmount id="budget-custom" value={f.maxBudget} onChange={(n) => set({ maxBudget: n })} />
-        <span className={hint13}>Can go down later, never up. Flights, stay and daily spending all count.</span>
+        <span className={hint13}>Slide it, or tap the number to type your own. Can go down later, never up. Flights, stay and daily spending all count.</span>
       </Card>
 
       <Card>

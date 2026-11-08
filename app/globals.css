@@ -50,6 +50,7 @@
   --radius-xl: var(--r-xl);
 
   --ease-spring: var(--spring);
+  --ease-settle: var(--ease);
 }
 
 @layer base {

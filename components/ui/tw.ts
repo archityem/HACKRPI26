@@ -150,7 +150,11 @@ export const rankNameText = "overflow-hidden text-ellipsis whitespace-nowrap";
 export const rankPrice = "flex flex-col items-end whitespace-nowrap [&_[data-meta]]:text-[11px]";
 export const rankHandle = "mr-1 inline-flex size-11 shrink-0 cursor-grab touch-none appearance-none items-center justify-center border-0 bg-transparent p-0";
 
-export const rankTicket = "relative animate-rank-open data-dragging:-translate-y-1 data-dragging:scale-[1.02] data-dragging:animate-none";
+export const rankItem = "group/item";
+export const rankItemRow = "grid grid-rows-[1fr] transition-[grid-template-rows] duration-[280ms] ease-settle group-data-[open]/item:grid-rows-[0fr]";
+export const rankItemTicket = "grid grid-rows-[0fr] transition-[grid-template-rows] duration-[280ms] ease-settle group-data-[open]/item:grid-rows-[1fr]";
+export const rankItemInner = "min-h-0 overflow-hidden";
+export const rankTicket = "relative data-dragging:-translate-y-1 data-dragging:scale-[1.02]";
 export const rankHit = "absolute inset-0 z-[1] m-0 cursor-pointer touch-pan-y appearance-none rounded-xl border-0 bg-transparent p-0";
 export const rankHandleWrap = "absolute top-5 right-5 z-[2] flex";
 export const rankSpacer = "size-11 shrink-0";

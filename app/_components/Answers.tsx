@@ -4,8 +4,8 @@ import { PREFS, airportsFor, api, dayDiff, money, range, type Snapshot } from "@
 import type { Deal } from "@/lib/types";
 import { QuestionCard, tripTone } from "@/components/trip";
 import { Button, Chip, Field, Icon, Meta, Progress, Text, useToast } from "@/components/ui";
-import { chips, cn, col, cta, dates, err, hint13, qBig, qFoot, rangeInput, row, ticket, ticketCompact, titleblock, topbar, toneClass, type } from "@/components/ui/tw";
-import { CustomAmount } from "./CustomAmount";
+import { chips, cn, col, cta, dates, err, hint13, qFoot, rangeInput, row, ticket, ticketCompact, titleblock, topbar, toneClass, type } from "@/components/ui/tw";
+import { EditableAmount } from "./EditableAmount";
 import { InstallSheet } from "./Invite";
 import { prefShort, useInstall, windowLabel, type Ctx } from "./common";
 
@@ -126,9 +126,8 @@ export function AnswersScreen(ctx: Ctx) {
       {/* 02 budget */}
       <QuestionCard number={num(1)} label={STEPS[1].label} value={values[1]} state={state(1)} tone="dusk" onEdit={() => edit(1)}>
         <label htmlFor="mybudget" className={type.meta}>{STEPS[1].label}</label>
-        <Text variant="numeral" className={qBig}>{money(d.max)}</Text>
+        <EditableAmount id="mybudget-amount" label="Your max budget in dollars. Type your own amount." value={d.max} onChange={(n) => set({ max: n })} />
         <input id="mybudget" className={rangeInput} type="range" min={0} max={Math.min(5000, cap)} step={cap > 400 ? 25 : 5} value={Math.min(d.max, 5000, cap)} onChange={(e) => set({ max: Number(e.target.value) })} />
-        <CustomAmount id="mybudget-custom" value={d.max} onChange={(n) => set({ max: n })} />
         <div className={cn(qFoot, type.meta)}><span>Private</span><span>Trip cap {money(cap)}</span></div>
         <span className={hint13}>The group only sees a range, never your number. Flights, {t.nights} nights and daily spending all count.</span>
       </QuestionCard>

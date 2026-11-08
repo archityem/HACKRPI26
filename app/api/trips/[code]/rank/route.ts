@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { authenticate } from "@/lib/auth";
 import { groupOrder } from "@/lib/rank";
 import { getStore } from "@/lib/store";
 import { snapshot } from "@/lib/trips";
 
-const Body = z.object({ memberId: z.string(), ranking: z.array(z.string().min(1)).min(1).max(30), locked: z.boolean().default(false) });
+const Body = z.object({ memberId: z.string().min(1), ranking: z.array(z.string().min(1)).min(1).max(30), locked: z.boolean().default(false) });
 
 // Save a member's full order. "Locked" means they're done; when every ready member has locked, the
 // group's #1 becomes the proposal automatically (members then approve it on the plan screen).
@@ -12,11 +13,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ code: s
   const { code } = await params;
   const parsed = Body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues }, { status: 400 });
-  const { memberId, locked } = parsed.data;
+  const auth = await authenticate(req, code, parsed.data.memberId);
+  if (!("member" in auth)) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  if (!auth.member.ready) return NextResponse.json({ error: "Add your details before ranking" }, { status: 403 });
+  const memberId = auth.member.id;
+  const { locked } = parsed.data;
   const store = await getStore();
   const members = await store.listMembers(code);
-  if (!members.some((m) => m.id === memberId && m.ready))
-    return NextResponse.json({ error: "Add your details before ranking" }, { status: 403 });
   const snap = await snapshot(code, memberId);
   if (!snap) return NextResponse.json({ error: "Trip not found" }, { status: 404 });
   if (snap.trip.phase === "planning") return NextResponse.json({ error: "The trip is already locked" }, { status: 409 });

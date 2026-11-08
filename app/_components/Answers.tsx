@@ -59,10 +59,10 @@ export function AnswersScreen(ctx: Ctx) {
     setSaving(true);
     try {
       const deals: Deal[] = [...d.deals, ...(d.passport ? [] : (["domestic"] as Deal[]))];
-      const res = await api<Snapshot & { memberId: string }>(`/api/trips/${ctx.code}/members`, {
+      const res = await api<Snapshot & { memberId: string; token?: string }>(`/api/trips/${ctx.code}/members`, {
         memberId: me?.id, name: d.name.trim(), origin: d.origin, start: d.start, end: d.end, min: 0, max: d.max, prefs: d.prefs, deals,
       });
-      ctx.onJoined(res.memberId, res);
+      ctx.onJoined(res.memberId, res, res.token);
       toast("You’re in. Ideas now include your answers.");
       ctx.go("vibe");
     } catch (e) {

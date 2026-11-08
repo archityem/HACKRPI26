@@ -7,8 +7,14 @@ const PORT = 3199;
 const B = `http://localhost:${PORT}/api/trips`;
 let server: ChildProcess;
 
-const post = (url: string, body: unknown) =>
-  fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+const post = (url: string, body: unknown, token?: string) =>
+  fetch(url, {
+    method: "POST",
+    headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify(body),
+  });
+const get = (url: string, token?: string) =>
+  fetch(url, token ? { headers: { authorization: `Bearer ${token}` } } : undefined);
 const j = async (r: Response) => ({ status: r.status, body: (await r.json()) as any });
 
 before(async () => {
@@ -24,51 +30,85 @@ after(() => { if (server?.pid) try { process.kill(-server.pid, "SIGTERM"); } cat
 test("full flow: create → join → vote → propose → approve → planning", async () => {
   const c = await j(await post(B, { hostName: "Maya", title: "Spring", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 1200, vibes: ["beach"] }));
   assert.equal(c.status, 201);
-  const { code, memberId: host } = c.body;
+  const { code, memberId: host, token: hostToken } = c.body;
   assert.match(code, /^[a-z0-9]{6}$/);
+  assert.equal(typeof hostToken, "string");
+  assert.notEqual(hostToken, host);
 
-  // Host hasn't answered yet: not counted as ready, no suggestions.
-  let s = await j(await fetch(`${B}/${code}?me=${host}`));
+  // Host hasn't answered yet: not counted as ready, no suggestions. A public id is not a credential.
+  let s = await j(await get(`${B}/${code}?me=${host}`));
+  assert.equal(s.body.me, null);
   assert.equal(s.body.match.readyCount, 0);
   assert.equal(s.body.match.eligible.length, 0);
+  assert.equal(JSON.stringify(s.body).includes(hostToken), false);
 
-  const hostAns = await j(await post(`${B}/${code}/members`, { memberId: host, name: "Maya", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 2000, prefs: ["beach"] }));
+  const hostAns = await j(await post(`${B}/${code}/members`, { memberId: host, name: "Maya", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 2000, prefs: ["beach"] }, hostToken));
   assert.equal(hostAns.status, 200);
+  assert.equal(hostAns.body.token, undefined);
   // Host ceiling (1200) caps the member's own higher max (2000).
   assert.equal(hostAns.body.members.find((m: any) => m.id === host).max, 1200);
 
   const leo = await j(await post(`${B}/${code}/members`, { name: "Leo", origin: "jfk", start: "2027-03-08", end: "2027-03-16", max: 900, prefs: ["nightlife"] }));
   const leoId = leo.body.memberId;
+  const leoToken = leo.body.token as string;
+  assert.equal(typeof leoToken, "string");
   assert.equal(leo.body.match.readyCount, 2);
   assert.equal(leo.body.match.start, "2027-03-08");
 
-  // Privacy: Leo's budget is hidden from the host's view, visible in his own.
-  s = await j(await fetch(`${B}/${code}?me=${host}`));
+  // Spoofed save does not change Leo. His budget stays private unless the request carries his credential.
+  assert.equal((await post(`${B}/${code}/members`, { memberId: leoId, name: "Leo", origin: "JFK", start: "2027-03-08", end: "2027-03-16", max: 1, prefs: ["nightlife"] }, hostToken)).status, 403);
+  assert.equal((await post(`${B}/${code}/members`, { memberId: leoId, name: "Leo", origin: "JFK", start: "2027-03-08", end: "2027-03-16", max: 1, prefs: ["nightlife"] })).status, 401);
+  s = await j(await get(`${B}/${code}?me=${leoId}`));
+  assert.equal(s.body.me, null);
   assert.equal(s.body.members.find((m: any) => m.id === leoId).max, undefined);
-  s = await j(await fetch(`${B}/${code}?me=${leoId}`));
+  assert.equal(s.body.members.find((m: any) => m.id === leoId).min, undefined);
+  assert.equal(s.body.trip.maxBudget, 1200);
+  assert.equal(s.body.members.find((m: any) => m.id === leoId).name, "Leo");
+  s = await j(await get(`${B}/${code}?me=${host}`, hostToken));
+  assert.equal(s.body.me, host);
+  assert.equal(s.body.members.find((m: any) => m.id === leoId).max, undefined);
+  assert.equal(s.body.members.find((m: any) => m.id === host).max, 1200);
+  s = await j(await get(`${B}/${code}`, leoToken));
   assert.equal(s.body.members.find((m: any) => m.id === leoId).max, 900);
 
   const pick = s.body.match.eligible[0].id;
-  // Voting is limited to current suggestions and ready members.
-  assert.equal((await post(`${B}/${code}/vote`, { memberId: leoId, destinationId: "atlantis" })).status, 400);
-  assert.equal((await post(`${B}/${code}/vote`, { memberId: "stranger", destinationId: pick })).status, 403);
-  const v = await j(await post(`${B}/${code}/vote`, { memberId: leoId, destinationId: pick }));
+  // Voting is limited to current suggestions and to the credential's member.
+  assert.equal((await post(`${B}/${code}/vote`, { memberId: leoId, destinationId: "atlantis" }, leoToken)).status, 400);
+  assert.equal((await post(`${B}/${code}/vote`, { memberId: "stranger", destinationId: pick })).status, 401);
+  assert.equal((await post(`${B}/${code}/vote`, { memberId: host, destinationId: pick }, leoToken)).status, 403);
+  const v = await j(await post(`${B}/${code}/vote`, { memberId: leoId, destinationId: pick }, leoToken));
   assert.equal(v.body.votes.length, 1);
+  assert.equal(v.body.votes[0].memberId, leoId);
   // Re-voting replaces, not appends.
-  await post(`${B}/${code}/vote`, { memberId: leoId, destinationId: pick });
-  s = await j(await fetch(`${B}/${code}`));
+  await post(`${B}/${code}/vote`, { memberId: leoId, destinationId: pick }, leoToken);
+  s = await j(await get(`${B}/${code}`));
   assert.equal(s.body.votes.length, 1);
 
-  // Can't approve before a proposal exists.
-  assert.equal((await post(`${B}/${code}/approve`, { memberId: host })).status, 400);
-  await post(`${B}/${code}/proposal`, { memberId: host, destinationId: pick });
-  let a = await j(await post(`${B}/${code}/approve`, { memberId: host }));
+  // Can't approve before a proposal exists, and a public id cannot approve.
+  assert.equal((await post(`${B}/${code}/approve`, { memberId: host }, hostToken)).status, 400);
+  assert.equal((await post(`${B}/${code}/approve`, { memberId: host })).status, 401);
+  await post(`${B}/${code}/proposal`, { memberId: host, destinationId: pick }, hostToken);
+  let a = await j(await post(`${B}/${code}/approve`, { memberId: host }, hostToken));
   assert.equal(a.body.trip.phase, "ideas"); // one of two
-  a = await j(await post(`${B}/${code}/approve`, { memberId: leoId }));
+  assert.equal((await post(`${B}/${code}/approve`, { memberId: leoId }, hostToken)).status, 403);
+  assert.deepEqual((await j(await get(`${B}/${code}`))).body.trip.approvals, [host]);
+  a = await j(await post(`${B}/${code}/approve`, { memberId: leoId }, leoToken));
   assert.equal(a.body.trip.phase, "planning"); // everyone
 
+  // The same answers again leave the approved plan in place, including a resend of the pre-cap max.
+  const same = await j(await post(`${B}/${code}/members`, { memberId: leoId, name: "Leo", origin: "JFK", start: "2027-03-08", end: "2027-03-16", max: 900, prefs: ["nightlife"] }, leoToken));
+  assert.equal(same.status, 200);
+  assert.equal(same.body.trip.phase, "planning");
+  assert.equal(same.body.trip.proposal, pick);
+  assert.deepEqual([...same.body.trip.approvals].sort(), [host, leoId].sort());
+  // Host's original 2000 was stored as the ceiling. Sending it again is not a new budget.
+  const hostAgain = await j(await post(`${B}/${code}/members`, { memberId: host, name: "Maya", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 2000, prefs: ["beach"] }, hostToken));
+  assert.equal(hostAgain.body.trip.phase, "planning");
+  assert.equal(hostAgain.body.members.find((m: any) => m.id === host).max, 1200);
+  assert.equal(hostAgain.body.trip.proposal, pick);
+
   // Editing constraints invalidates the proposal and approvals.
-  const edit = await j(await post(`${B}/${code}/members`, { memberId: leoId, name: "Leo", origin: "JFK", start: "2027-03-08", end: "2027-03-16", max: 800, prefs: ["nightlife"] }));
+  const edit = await j(await post(`${B}/${code}/members`, { memberId: leoId, name: "Leo", origin: "JFK", start: "2027-03-08", end: "2027-03-16", max: 800, prefs: ["nightlife"] }, leoToken));
   assert.equal(edit.body.trip.proposal, null);
   assert.deepEqual(edit.body.trip.approvals, []);
   assert.equal(edit.body.trip.phase, "ideas");
@@ -76,13 +116,62 @@ test("full flow: create → join → vote → propose → approve → planning",
 
 test("a late joiner must also approve before planning unlocks", async () => {
   const { body: c } = await j(await post(B, { hostName: "A", title: "T", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 3000 }));
-  const ans = (n: string, id?: string) => post(`${B}/${c.code}/members`, { memberId: id, name: n, origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] });
-  await ans("A", c.memberId);
-  const pick = (await j(await fetch(`${B}/${c.code}`))).body.match.eligible[0].id;
-  await post(`${B}/${c.code}/proposal`, { memberId: c.memberId, destinationId: pick });
-  await post(`${B}/${c.code}/approve`, { memberId: c.memberId });
+  const ans = (n: string, id?: string, token?: string) => post(`${B}/${c.code}/members`, { memberId: id, name: n, origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] }, token);
+  await ans("A", c.memberId, c.token);
+  const pick = (await j(await get(`${B}/${c.code}`))).body.match.eligible[0].id;
+  await post(`${B}/${c.code}/proposal`, { memberId: c.memberId, destinationId: pick }, c.token);
+  await post(`${B}/${c.code}/approve`, { memberId: c.memberId }, c.token);
   const late = (await j(await ans("B"))).body;
   assert.equal(late.trip.proposal, null); // new member reset the agreement
+  assert.equal(typeof late.token, "string");
+});
+
+test("simultaneous approvals both land and open planning", async () => {
+  const { body: c } = await j(await post(B, { hostName: "A", title: "T", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 3000 }));
+  await post(`${B}/${c.code}/members`, { memberId: c.memberId, name: "A", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] }, c.token);
+  const leo = await j(await post(`${B}/${c.code}/members`, { name: "B", origin: "JFK", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] }));
+  const pick = (await j(await get(`${B}/${c.code}`))).body.match.eligible[0].id;
+  await post(`${B}/${c.code}/proposal`, { memberId: c.memberId, destinationId: pick }, c.token);
+  const [a, b] = await Promise.all([
+    j(await post(`${B}/${c.code}/approve`, { memberId: c.memberId }, c.token)),
+    j(await post(`${B}/${c.code}/approve`, { memberId: leo.body.memberId }, leo.body.token)),
+  ]);
+  assert.equal(a.status, 200);
+  assert.equal(b.status, 200);
+  const s = await j(await get(`${B}/${c.code}`));
+  assert.deepEqual([...s.body.trip.approvals].sort(), [c.memberId, leo.body.memberId].sort());
+  assert.equal(s.body.trip.phase, "planning");
+  assert.equal(s.body.trip.proposal, pick);
+});
+
+test("resaving the same answers keeps a locked ranking and the approved plan", async () => {
+  const { body: c } = await j(await post(B, { hostName: "A", title: "T", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 1200, vibes: ["beach"] }));
+  const answers = { memberId: c.memberId, name: "A", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 1200, prefs: ["beach", "food"] };
+  await post(`${B}/${c.code}/members`, answers, c.token);
+  const ids = (await j(await get(`${B}/${c.code}`, c.token))).body.match.eligible.map((d: { id: string }) => d.id);
+  assert.ok(ids.length > 0);
+  const ranked = await j(await post(`${B}/${c.code}/rank`, { memberId: c.memberId, ranking: ids, locked: true }, c.token));
+  assert.equal(ranked.status, 200);
+  const proposal = ranked.body.trip.proposal as string;
+  assert.ok(proposal);
+  assert.equal(ranked.body.votes.find((v: { memberId: string }) => v.memberId === c.memberId).locked, true);
+  const approved = await j(await post(`${B}/${c.code}/approve`, { memberId: c.memberId }, c.token));
+  assert.equal(approved.body.trip.phase, "planning");
+
+  const same = await j(await post(`${B}/${c.code}/members`, { ...answers, name: "Ada", prefs: ["food", "beach"] }, c.token));
+  assert.equal(same.body.trip.phase, "planning");
+  assert.equal(same.body.trip.proposal, proposal);
+  assert.deepEqual(same.body.trip.approvals, [c.memberId]);
+  const vote = same.body.votes.find((v: { memberId: string }) => v.memberId === c.memberId);
+  assert.equal(vote.locked, true);
+  assert.deepEqual(vote.ranking, ids);
+
+  const changed = await j(await post(`${B}/${c.code}/members`, { ...answers, max: 400 }, c.token));
+  assert.equal(changed.body.trip.proposal, null);
+  assert.deepEqual(changed.body.trip.approvals, []);
+  assert.equal(changed.body.trip.phase, "ideas");
+  const after = changed.body.votes.find((v: { memberId: string; locked?: boolean }) => v.memberId === c.memberId);
+  if (after) assert.equal(after.locked, false);
 });
 
 test("host's invite picture is stored, kept out of snapshots, and served on its own", async () => {
@@ -131,10 +220,10 @@ test("AI invite templates: 3 designs from the title, and a stored template is sa
 test("retry: validates input, requires a ready member, 404s unknown trips", async () => {
   const { body: c } = await j(await post(B, { hostName: "A", title: "T", windowStart: "2027-03-01", windowEnd: "2027-03-31", nights: 5, maxBudget: 3000 }));
   assert.equal((await post(`${B}/${c.code}/retry`, {})).status, 400);
-  assert.equal((await post(`${B}/${c.code}/retry`, { memberId: c.memberId })).status, 403); // host hasn't answered yet
+  assert.equal((await post(`${B}/${c.code}/retry`, { memberId: c.memberId }, c.token)).status, 403); // host hasn't answered yet
   assert.equal((await post(`${B}/nope00/retry`, { memberId: "x" })).status, 404);
-  await post(`${B}/${c.code}/members`, { memberId: c.memberId, name: "A", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] });
-  assert.equal((await post(`${B}/${c.code}/retry`, { memberId: c.memberId })).status, 200);
+  await post(`${B}/${c.code}/members`, { memberId: c.memberId, name: "A", origin: "BOS", start: "2027-03-06", end: "2027-03-14", max: 3000, prefs: ["beach"] }, c.token);
+  assert.equal((await post(`${B}/${c.code}/retry`, { memberId: c.memberId }, c.token)).status, 200);
 });
 
 test("validation and not-found", async () => {

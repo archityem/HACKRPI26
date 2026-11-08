@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { hashToken, newToken } from "@/lib/auth";
 import { parseCover } from "@/lib/cover";
 import { getStore } from "@/lib/store";
 import { sanitizeTemplate } from "@/lib/template";
@@ -57,6 +58,9 @@ export async function POST(req: Request) {
     id: memberId, tripCode: code, name: b.hostName, origin: "", start: b.windowStart, end: b.windowEnd,
     min: 0, max: b.maxBudget, prefs: b.vibes, deals: [], ready: false, hue: 0,
   };
-  await (await getStore()).createTrip(trip, host);
-  return NextResponse.json({ code, memberId }, { status: 201 });
+  const store = await getStore();
+  const token = newToken();
+  await store.createTrip(trip, host);
+  await store.putCredential(code, memberId, hashToken(token));
+  return NextResponse.json({ code, memberId, token }, { status: 201 });
 }

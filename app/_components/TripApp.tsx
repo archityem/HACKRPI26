@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, loadMemberId, rememberTrip, saveMemberId, type Snapshot } from "@/lib/client";
+import { api, loadSession, rememberTrip, saveSession, type Snapshot } from "@/lib/client";
 import { ButtonLink, Card, Meta, TabBar, Text, ToastProvider, useToast } from "@/components/ui";
 import { AnswersScreen } from "./Answers";
 import { InviteScreen, LandingScreen } from "./Invite";
@@ -24,30 +24,28 @@ function Trip({ code }: { code: string }) {
   const toast = useToast();
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [error, setError] = useState("");
-  const [meId, setMeId] = useState<string | null | undefined>(undefined); // undefined = not read from storage yet
   const [view, setView] = useState<View | null>(null);
   const [tick, setTick] = useState(0);
   const settled = useRef(false);
+  const epoch = useRef(0);
 
-  useEffect(() => { setMeId(loadMemberId(code)); }, [code]);
-
-  // Load, then poll so results update as friends respond.
+  // Load, then poll so results update as friends respond. The credential, when this device has one, rides on the request.
   useEffect(() => {
-    if (meId === undefined) return;
     let stop = false;
     const load = async () => {
       if (document.hidden) return;
+      const mine = epoch.current;
       try {
-        const s = await api<Snapshot>(`/api/trips/${code}${meId ? `?me=${meId}` : ""}`);
-        if (!stop) { setSnap(s); setError(""); }
-      } catch (e) { if (!stop) setError(e instanceof Error ? e.message : "Couldn’t load this trip."); }
+        const s = await api<Snapshot>(`/api/trips/${code}`);
+        if (!stop && mine === epoch.current) { setSnap(s); setError(""); }
+      } catch (e) { if (!stop && mine === epoch.current) setError(e instanceof Error ? e.message : "Couldn’t load this trip."); }
     };
     load();
     const iv = setInterval(load, POLL_MS);
     return () => { stop = true; clearInterval(iv); };
-  }, [code, meId, tick]);
+  }, [code, tick]);
 
-  const me = snap?.members.find((m) => m.id === meId);
+  const me = snap?.me ? snap.members.find((m) => m.id === snap.me) : undefined;
 
   // Open on the right screen once: where the link says, else where this person left off.
   useEffect(() => {
@@ -91,7 +89,15 @@ function Trip({ code }: { code: string }) {
     code, snap, me, go, run,
     apply: setSnap,
     refresh: () => setTick((n) => n + 1),
-    onJoined: (id, fresh) => { saveMemberId(code, id); rememberTrip(code, fresh.trip.title); setMeId(id); setSnap(fresh); },
+    onJoined: (id, fresh, token) => {
+      epoch.current += 1;
+      const kept = token ?? loadSession(code)?.token;
+      if (kept) saveSession(code, { memberId: id, token: kept });
+      rememberTrip(code, fresh.trip.title);
+      const { token: _token, memberId: _memberId, ...rest } = fresh as Snapshot & { token?: string; memberId?: string };
+      void _token; void _memberId;
+      setSnap(rest);
+    },
   };
 
   const isHost = me?.id === snap.trip.hostMemberId;

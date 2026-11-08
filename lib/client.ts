@@ -61,9 +61,15 @@ export const dayDiff = (a: string, b: string) => Math.round((day(b).getTime() - 
 
 export class ApiError extends Error {}
 
+const TRIP_URL = /\/api\/trips\/([a-z0-9]{6})(?![a-z0-9])/;
+
 export async function api<T = Snapshot>(url: string, body?: unknown): Promise<T> {
-  const res = await fetch(url, body === undefined ? undefined : {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+  const headers: Record<string, string> = {};
+  const code = typeof window === "undefined" ? undefined : TRIP_URL.exec(url)?.[1];
+  const token = code ? loadSession(code)?.token : undefined;
+  if (token) headers.authorization = `Bearer ${token}`;
+  const res = await fetch(url, body === undefined ? (token ? { headers } : undefined) : {
+    method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -73,14 +79,24 @@ export async function api<T = Snapshot>(url: string, body?: unknown): Promise<T>
   return data as T;
 }
 
-// Who "you" are on this device for a given trip. No login: the id lives in localStorage.
-const key = (code: string) => `elsewhere:member:${code}`;
-export const loadMemberId = (code: string): string | null => {
-  try { return localStorage.getItem(key(code)); } catch { return null; }
-};
-export const saveMemberId = (code: string, id: string) => {
-  try { localStorage.setItem(key(code), id); } catch { /* storage unavailable: session-only */ }
-};
+// Who "you" are on this device. No account: the public id is for the crew, the token is the credential.
+export interface DeviceSession { v: 1; memberId: string; token: string }
+const sessionKey = (code: string) => `elsewhere:session:${code}`;
+export function loadSession(code: string): DeviceSession | null {
+  try {
+    const raw = localStorage.getItem(sessionKey(code));
+    if (!raw) return null;
+    const s = JSON.parse(raw) as Partial<DeviceSession>;
+    if (s.v !== 1 || typeof s.memberId !== "string" || typeof s.token !== "string" || !s.memberId || !s.token) return null;
+    return { v: 1, memberId: s.memberId, token: s.token };
+  } catch { return null; }
+}
+export function saveSession(code: string, session: { memberId: string; token: string }) {
+  try {
+    localStorage.setItem(sessionKey(code), JSON.stringify({ v: 1, memberId: session.memberId, token: session.token } satisfies DeviceSession));
+    localStorage.removeItem(`elsewhere:member:${code}`);
+  } catch { /* storage unavailable: session-only */ }
+}
 
 // ---- Traveler colors: stored as an index on the member, rendered through the --ew-t0..--ew-t7 CSS variables.
 export const hueVar = (m: { hue?: number }, fallbackIndex = 0) => `var(--ew-t${(m.hue ?? fallbackIndex) % 8})`;

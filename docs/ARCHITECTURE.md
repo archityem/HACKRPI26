@@ -2,8 +2,6 @@
 
 Tripflow is a group trip planner with no accounts. One person starts a trip and sends a link. Friends open it on a phone, give a first name, answer a few questions, and rank places. The group's top pick becomes the plan.
 
-This note is the same story in layers, so you can present it, and so a new reader can find the files.
-
 Live app: https://hackrpi-26.vercel.app
 
 ## 1. Product surface
